@@ -1,0 +1,2802 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>无极天下 - 七政四余</title>
+    <script src="./js/utils.js"></script>
+    <script src="./js/timezone.js"></script>
+    <script src="./js/canvas2image.js"></script>
+    <script src="./js/html2canvas.min.js"></script>
+    <script src="./js/xlsx.full.min.js"></script>
+    <script src="./js/xlxs-style.js"></script>
+    <link rel="stylesheet" href="./libs/element-plus/2.3.9_dist_index.css" />
+    <!-- <script src="./libs/3.3.4_dist_vue.global.prod.js"></script> -->
+    <script src="./libs/3.3.4_dist_vue.global.js"></script>
+    <script src="./libs/element-plus/2.3.9_dist_index.full.js"></script>
+    <script src="./libs/element-plus/2.3.9_dist_locale_zh-cn.js"></script>
+    <script src="./libs/element-plus/icons-vue@2.1.0/index.js"></script>
+    <script src="./moni.js"></script>
+    <link rel="stylesheet" href="./css/qzsy.css" />
+    <script>
+      const QZSY_XINGS = ['日', '月', '金', '木', '水', '火', '土', '天', '海', '冥', '计', '罗', '炁', '孛', '福', '升', '顶']
+      const XIU_GONG_LABEL = ['宿1', '宿2', '宫1', '宫2']
+      const XIU_GONG_CLASS = ['su1', 'su2', 'gong1', 'gong2']
+      const XIU_GONG_BG_COLORS = ['ec9d8f', 'ecde8f', 'a5ec8f', '8fbfec'] //背景颜色
+      const XIU_GONG_BG_DOWN_COLORS = ['490707', '997d02', '2eb605', '097ce7'] //运势低背景颜色
+
+      const XIU_GONG_BG_UP_COLORS_3 = ['00b050', 'ff0066', '00b050', '0000ff'] //运势高背景颜色样式3
+
+      const F_BG_CHANGE_COLORS_2 = ['00b050', 'd16a12', '00b050', 'd16a12'] //运势变化背景颜色样式2（福
+      const S_BG_CHANGE_COLORS_2 = ['00b050', 'FF0000', '00b050', 'FF0000'] //运势变化背景颜色样式2（升
+      const D_BG_CHANGE_COLORS_2 = ['00b050', '0000ff', '00b050', '0000ff'] //运势变化背景颜色样式2（顶
+
+      const DEFAULT_EXCEL_BORDER_STYLE = {
+        right: { style: 'thin' },
+        left: { style: 'thin' },
+        top: { style: 'thin' },
+        bottom: { style: 'thin' }
+      }
+      const DEFAULT_EXCEL_ALIGN_STYLE = { horizontal: 'center' }
+
+      const ASTRO_XINGS = [
+        '日',
+        '月',
+        '金',
+        '木',
+        '水',
+        '火',
+        '土',
+        '天',
+        '海',
+        '冥',
+        '计',
+        '罗',
+        -1,
+        '孛',
+        '福',
+        '升',
+        '顶',
+        '医',
+        '谷',
+        '智',
+        '婚',
+        '灶'
+      ]
+      const SYMBOL_MAP = {
+        日: '⊙',
+        月: '☽',
+        金: '♀',
+        木: '♃',
+        水: '☿',
+        火: '♂',
+        土: '♄',
+        天: '♅',
+        海: '♆',
+        冥: '♇',
+        升: 'AC',
+        顶: 'MC',
+        合: '☌',
+        冲: '☍',
+        刑: '◻',
+        刑: '*'
+      }
+    </script>
+    <script>
+      const { createApp, ref, getCurrentInstance, reactive } = Vue
+      const { ElMessageBox, ElMessage, ElNotification } = ElementPlus
+
+      window.onload = function () {
+        const app = createApp({
+          setup() {
+            const { ArrowLeftBold, ArrowRightBold, VideoPlay, VideoPause, Refresh } = ElementPlusIconsVue
+            const { proxy } = getCurrentInstance()
+
+            const zoneOptions = ref(timeZoneList)
+
+            const user = ref({
+              account: '请登录...'
+            })
+
+            function loadUserData() {
+              sendRequest({
+                url: `api/user/getUserInfo`
+              }).then(userInfoResp => {
+                user.value.account = '+' + userInfoResp.data.account
+              })
+            }
+            function onClickLogout() {
+              ElMessageBox.confirm('确认要退出登录吗？').then(() => {
+                sendRequest({
+                  method: 'GET',
+                  url: '/api/user/userLogout'
+                })
+                  .then(res => {
+                    if (res.code == 200) {
+                      window.localStorage.removeItem('token')
+                      window.localStorage.removeItem('username')
+                      window.location.href = 'login.html'
+                    }
+                  })
+                  .catch(() => {
+                    // catch error
+                  })
+              })
+            }
+
+            const form = ref({
+              username: '',
+              sex: '男',
+              birth: '20020202020202',
+              now: '20020202020202',
+              // birth: '',
+              // now: '',
+              lat: 39.9,
+              lng: 116.4,
+              locationInputType: '0',
+              zone: 'Asia/Shanghai',
+              xingZhi: '0',
+              signDisplay: ['日', '月', '金', '木', '水', '火', '土', '计', '罗', '炁', '孛', '福', '升', '顶', '天', '海', '冥'],
+              astroSignDisplay: [
+                '日',
+                '月',
+                '金',
+                '木',
+                '水',
+                '火',
+                '土',
+                '天',
+                '海',
+                '冥',
+                '计',
+                '孛',
+                '福',
+                '升',
+                '顶',
+                '医',
+                '谷',
+                '智',
+                '婚',
+                '灶',
+                '罗'
+              ]
+            })
+            const qzsyXings = ref(QZSY_XINGS)
+            let ax = []
+            Object.assign(ax, ASTRO_XINGS)
+            ax.splice(12, 1)
+            const astroXings = ref(ax)
+
+            let signDisplay = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1]
+            let astroSignDisplay = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+
+            const checkTime = (rule, value, callback) => {
+              if (value === '') {
+                callback(new Error('请输入时间'))
+              } else {
+                if (!/^\s*\d{4}\s*\d{2}\s*\d{2}\s*\d{2}\s*\d{2}\s*\d{2}?$/.test(value)) {
+                  callback(new Error('时间格式不正确'))
+                }
+                callback()
+              }
+            }
+            const formRules = ref({
+              username: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
+              birth: [
+                { required: true, message: '请输入时间', trigger: 'blur' },
+                { validator: checkTime, message: '时间格式不正确', trigger: 'change' },
+                { validator: checkTime, message: '时间格式不正确', trigger: 'blur' }
+              ],
+              now: [
+                { required: true, message: '请输入时间', trigger: 'blur' },
+                { validator: checkTime, message: '时间格式不正确', trigger: 'change' },
+                { validator: checkTime, message: '时间格式不正确', trigger: 'blur' }
+              ],
+              lat: [{ required: true, message: '请输入纬度', trigger: 'blur' }],
+              lng: [{ required: true, message: '请输入经度', trigger: 'blur' }]
+            })
+
+            function resetForm() {
+              form.value = {
+                username: '',
+                sex: '男',
+                birth: '',
+                now: '',
+                lat: 39.9,
+                lng: 116.4,
+                locationInputType: '0',
+                zone: 'Asia/Shanghai',
+                xingZhi: '0',
+                signDisplay: ['日', '月', '金', '木', '水', '火', '土', '计', '罗', '炁', '孛'],
+                astroSignDisplay: ['日', '月', '金', '木', '水', '火', '土', '天', '海', '冥', '计', '孛', '福', '升', '顶']
+              }
+            }
+
+            // ******排盘 START
+            // 弹窗
+            const dialogPanVisible = ref(false)
+            const activeTabPan = ref('qzsy')
+            const qzsyPanData = ref({})
+            const xingPanData = ref({})
+            const filtTimeType = ref('year')
+            const autoPlayIntervalTime = ref(5)
+            const isAutoPlay = ref(false)
+            const paiPanBtnLoading = ref(false)
+            let intervalAutoPlay = null
+
+            function onClickPaiPan() {
+              proxy.$refs['formRef'].validate(valid => {
+                if (valid) {
+                  paiPanBtnLoading.value = true
+                  loadQzsyPan()
+                  loadXingPan()
+                  getLocationByGoogle()
+                }
+              })
+            }
+
+            function loadQzsyPan() {
+              let fields = form.value
+              let bt = getDateByStr(fields.birth)
+              let lt = getDateByStr(fields.now)
+
+              sendRequest({
+                url: `api/moira/getQzsyData?birth=${parseInt(bt.year)},${parseInt(bt.month)},${parseInt(bt.day)},${parseInt(
+                  bt.hour
+                )},${parseInt(bt.minute)},${parseInt(bt.second)}&now=${parseInt(lt.year)},${parseInt(lt.month)},${parseInt(
+                  lt.day
+                )},${parseInt(lt.hour)},${parseInt(lt.minute)},${parseInt(lt.second)}&xingZhi=${fields.xingZhi}&zone=${fields.zone}&lat=${
+                  fields.lat
+                }&lng=${fields.lng}&signDisplay=${signDisplay.join(',')}`
+              }).then(moriaResp => {
+                if (moriaResp && moriaResp.data) {
+                  qzsyPanData.value = moriaResp.data
+                  dialogPanVisible.value = true
+                }
+                paiPanBtnLoading.value = false
+              })
+            }
+
+            function loadXingPan() {
+              let fields = form.value
+              let bt = getDateByStr(fields.birth)
+              let lt = getDateByStr(fields.now)
+
+              sendRequest({
+                url: `api/moira/getZhanXingData?birth=${parseInt(bt.year)},${parseInt(bt.month)},${parseInt(bt.day)},${parseInt(
+                  bt.hour
+                )},${parseInt(bt.minute)},${parseInt(bt.second)}&now=${parseInt(lt.year)},${parseInt(lt.month)},${parseInt(
+                  lt.day
+                )},${parseInt(lt.hour)},${parseInt(lt.minute)},${parseInt(bt.second)}&xingPan=4&zone=${fields.zone}&lat=${fields.lat}&lng=${
+                  fields.lng
+                }&astroSignDisplay=${astroSignDisplay.join(',')}`
+              }).then(moriaResp => {
+                if (moriaResp.data) {
+                  xingPanData.value = moriaResp.data
+                  let xingDataList = []
+
+                  // 构建xing
+                  let xingLabel = []
+                  moriaResp.data.benMingHd.map(item => {
+                    xingLabel.push(item.xing)
+                  })
+
+                  // 构建星盘表格
+                  let tables = [moriaResp.data.benMingTable, moriaResp.data.liuNianTable]
+                  // 构造空数据
+
+                  for (let index = 0; index < 2; index++) {
+                    let xingData = []
+                    let first = []
+                    Object.assign(first, xingLabel)
+                    first.unshift('')
+                    xingData.push(first)
+
+                    xingLabel.map(x => {
+                      let data = [x]
+                      xingLabel.map(xx => {
+                        data.push('')
+                      })
+                      xingData.push(data)
+                    })
+                    xingDataList.push(xingData)
+                  }
+
+                  tables.map((xingTable, index) => {
+                    xingTable.map((b, bIdx) => {
+                      let data = []
+                      let body = ''
+                      if (b.indexOf('\n') != -1) {
+                        let relation = b.split('\n')[1]
+                        let relations = relation.split(' ')
+                        let xingIdx = xingLabel.findIndex(item => {
+                          return item == b.split('\n')[0].split(':')[0].trim()
+                        })
+                        if (xingIdx == -1) return
+                        xingLabel.map((x, xId) => {
+                          relations.map(r => {
+                            if (r.indexOf(':') != -1) {
+                              let rs = r.split(':')
+                              if (rs[1].indexOf(x) != -1) {
+                                xingDataList[index][xingIdx + 1][xId + 1] = rs[0]
+                              }
+                            }
+                          })
+                        })
+                      }
+                    })
+                  })
+                  xingPanData.value.benMingXingRows = xingDataList[0]
+                  xingPanData.value.liuNianXingRows = xingDataList[1]
+                }
+              })
+            }
+
+            function getLocationByGoogle() {
+              const xhr = new XMLHttpRequest()
+              xhr.open(
+                'GET',
+                `https://maps.googleapis.com/maps/api/geocode/json?latlng=${form.value.lat}%2C${form.value.lng}&location_type=ROOFTOP&language=zh-CN&result_type=street_address&key=AIzaSyC2k5kJeKpF6Gs4t9-a-wJg53EyQntj2Gk`
+              )
+              xhr.addEventListener('loadend', () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  try {
+                    let data = JSON.parse(xhr.response)
+                    if (data && data.plus_code && data.plus_code.compound_code) {
+                      if (qzsyPanData.value.headers) qzsyPanData.value.headers.city = data.plus_code.compound_code
+                      if (xingPanData.value.headers) xingPanData.value.headers.city = data.plus_code.compound_code
+                      if (data.plus_code.compound_code.indexOf(' ')) {
+                        if (qzsyPanData.value.headers)
+                          qzsyPanData.value.headers.city = data.plus_code.compound_code.substr(data.plus_code.compound_code.indexOf(' '))
+                        if (xingPanData.value.headers)
+                          xingPanData.value.headers.city = data.plus_code.compound_code.substr(data.plus_code.compound_code.indexOf(' '))
+                      }
+                    }
+                  } catch (e) {}
+                }
+              })
+              xhr.send()
+            }
+
+            function onCheckSignDisplay() {
+              // 构建signDisplay
+              if (form.value.signDisplay && form.value.signDisplay.length > 0) {
+                signDisplay = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1]
+                form.value.signDisplay.map(x => {
+                  let idx = QZSY_XINGS.findIndex(i => {
+                    return x == i
+                  })
+                  if (-1 != idx) {
+                    signDisplay[idx] = 1
+                  }
+                })
+              }
+            }
+
+            function onCheckAstroSignDisplay() {
+              // 构建signDisplay
+              if (form.value.astroSignDisplay && form.value.signDisplay.length > 0) {
+                astroSignDisplay = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+                form.value.astroSignDisplay.map(x => {
+                  let idx = ASTRO_XINGS.findIndex(i => {
+                    return x == i
+                  })
+                  if (-1 != idx) {
+                    astroSignDisplay[idx] = 1
+                  }
+                })
+              }
+            }
+
+            function onChangeNowTime(plus = true) {
+              let changeType = filtTimeType.value
+              let now = getDateByStr(form.value.now)
+              now[changeType] = plus ? parseInt(now[changeType]) + 1 : parseInt(now[changeType]) - 1
+              form.value.now = dateObjToStr(now)
+              loadQzsyPan()
+              loadXingPan()
+            }
+
+            function onPlayAutoPan() {
+              isAutoPlay.value = true
+              if (intervalAutoPlay) clearInterval(intervalAutoPlay)
+              intervalAutoPlay = setInterval(() => {
+                onChangeNowTime(true)
+              }, autoPlayIntervalTime.value * 1000)
+            }
+
+            function onPauseAutoPan() {
+              isAutoPlay.value = false
+              if (intervalAutoPlay) clearInterval(intervalAutoPlay)
+            }
+
+            function onCloseDialogPan() {
+              dialogPanVisible.value = false
+              isAutoPlay.value = false
+              if (intervalAutoPlay) clearInterval(intervalAutoPlay)
+            }
+            // ******排盘 END
+
+            // ******排盘历史 START
+            const panHisData = ref([])
+            const queryParams = ref({ pageSize: 10, pageNum: 1 })
+            const total = ref(0)
+
+            function loadPanHisData() {
+              sendRequest({
+                url: `api/moira/getMoiraRecordList?pageSize=${queryParams.value.pageSize}&pageNum=${queryParams.value.pageNum}`
+              }).then(res => {
+                if (!res || !res.rows) return
+                panHisData.value = res.rows
+                total.value = res.total
+              })
+            }
+
+            function onSavePaiHis() {
+              proxy.$refs['formRef'].validate(valid => {
+                if (valid) {
+                  sendRequest({
+                    url: `api/moira/addMoiraRecord`,
+                    method: `POST`,
+                    data: form.value
+                  }).then(resp => {
+                    ElMessage({
+                      message: '存档成功',
+                      type: 'success'
+                    })
+                    loadPanHisData()
+                  })
+                }
+              })
+            }
+
+            function onDelPanHis(idx, row) {
+              ElMessageBox.confirm('确认删除该排盘数据吗？').then(() => {
+                sendRequest({ method: 'POST', url: 'api/moira/deleteById?id=' + row.id }).then(res => {
+                  ElMessage({
+                    message: '删除成功',
+                    type: 'success'
+                  })
+                  loadPanHisData()
+                })
+              })
+            }
+            function onLoadPanHis(idx, row) {
+              row.xingZhi = '0'
+              form.value = row
+              ElMessage({
+                message: '载入成功',
+                type: 'success'
+              })
+            }
+
+            function addTask(row, days) {
+              ElMessageBox.prompt('输入要导出的天数', 'Tip', {
+                confirmButtonText: '提交',
+                cancelButtonText: '取消',
+                inputType: 'number',
+                inputValidator: function (value) {
+                  let intValue = parseInt(value)
+                  if (!/^\d+$/.test(value) || intValue < 1 || intValue > 30) {
+                    return '请输入1-30之间的整数'
+                  }
+                }
+              })
+                .then(({ value }) => {
+                  sendRequest({
+                    method: 'POST',
+                    url: 'api/moiraTask/addMoiraTask',
+                    data: { recordId: row.id, days: parseInt(value) }
+                  }).then(res => {
+                    if (res.code == 200) {
+                      ElMessage({
+                        message: '添加成功',
+                        type: 'success'
+                      })
+                      taskQueryParams.value.pageNum = 1
+                      loadTaskData()
+                    }
+                  })
+                })
+                .catch(() => {})
+            }
+
+            //  ******排盘历史 END
+
+            // ******导出任务 START
+            const taskData = ref([])
+            const taskQueryParams = ref({ pageSize: 10, pageNum: 1 })
+            const taskTotal = ref(0)
+            const exportTaskDataLoading = ref(false)
+
+            const exportPageNum = ref(1)
+            const exportPageTotal = ref(1)
+            const exportPageSize = ref(6)
+
+            function loadTaskData() {
+              taskData.value = []
+              sendRequest({
+                url: `api/moiraTask/getMoiraTaskVoList?pageSize=${taskQueryParams.value.pageSize}&pageNum=${taskQueryParams.value.pageNum}`
+              }).then(res => {
+                if (!res || !res.rows) return
+                taskData.value = res.rows
+                taskTotal.value = res.total
+              })
+            }
+
+            function onDelTask(row) {
+              ElMessageBox.confirm('确认删除该任务吗？').then(() => {
+                sendRequest({
+                  url: `api/moiraTask/deleteByTaskId?taskId=${row.taskId}`
+                }).then(res => {
+                  if ((res.code = 200))
+                    ElMessage({
+                      message: '任务删除成功',
+                      type: 'success'
+                    })
+                  taskQueryParams.value.pageNum = 1
+                  taskData.value = []
+                  loadTaskData()
+                })
+              })
+            }
+
+            function reloadTaskData() {
+              taskData.value = []
+              sendRequest({
+                url: `api/moiraTask/getMoiraTaskVoList?pageSize=${taskQueryParams.value.pageSize}&pageNum=${taskQueryParams.value.pageNum}`
+              }).then(res => {
+                if (!res || !res.rows) return
+                taskData.value = res.rows
+                taskTotal.value = res.total
+                ElMessage({
+                  message: '导出任务列表刷新成功',
+                  type: 'success'
+                })
+              })
+            }
+
+            async function onExportTaskData(idx, row) {
+              exportTaskDataLoading.value = true
+              taskData.value[idx].exportLoading = true
+              taskData.value[idx].exportPageNum = 1
+
+              let pageSize = exportPageSize.value
+              let pageNum = taskData.value[idx].exportPageNum
+              taskData.value[idx].exportPercentage = 0
+
+              while (true) {
+                let res = await sendRequest({
+                  url: `api/moiraTaskResult/getMoiraTaskResultList?taskId=${row.taskId}&pageSize=${pageSize}&pageNum=${pageNum}`
+                })
+                if (!res || !res.rows || res.rows.length <= 0) break
+                let jjson = []
+                let pageTotal = Math.ceil(res.total / pageSize)
+                console.log('pageTotal', pageTotal)
+                console.log('taskData.value[idx].exportPageNum / pageTotal', taskData.value[idx].exportPageNum / pageTotal)
+                taskData.value[idx].exportPercentage = parseInt(((taskData.value[idx].exportPageNum / pageTotal) * 100).toFixed(0))
+
+                qzsyTableData = []
+                xingTableData[0] = []
+                xingTableData[1] = []
+
+                res.rows.map(res => {
+                  result = JSON.parse(res.result)
+                  qzsyTableData.push(result.list)
+                  xingTableData[0].push(result.liuNianHd)
+                  xingTableData[1].push(result.liuNianGw)
+                  jjson.push(result)
+                })
+                console.log(jjson)
+                qzsyTableRows.value = []
+                handleQzsyTableData2Rows()
+
+                const wb = XLSX.utils.book_new()
+                const ws = XLSX.utils.aoa_to_sheet(qzsyTableRows.value)
+                XLSX.utils.book_append_sheet(wb, ws, '样式' + qzsyTableStyle.value)
+                let colsWidths = []
+                colsWidths.push({ wch: 3 })
+                qzsyTableRows.value[0].map(data => {
+                  colsWidths.push({ wch: 3 })
+                })
+                ws['!cols'] = colsWidths
+                XLSX.writeFile(
+                  wb,
+                  `${row.username ? row.username : ''}_${row.now}_10天推运表_${pageNum}_${parseInt(new Date().getTime() / 1000)}.xlsx`
+                )
+
+                if (pageNum * pageSize >= res.total) {
+                  break
+                }
+                pageNum += 1
+                taskData.value[idx].exportPageNum = pageNum
+              }
+
+              ElMessage({
+                message: '导出完成',
+                type: 'success'
+              })
+
+              taskData.value[idx].exportLoading = false
+              exportTaskDataLoading.value = false
+            }
+
+            loadTaskData()
+            //  ******排盘历史 END
+
+            // ******七政四余推运 START
+            const dialogQzsyTableVisible = ref(false)
+            const qzsyTableStyle = ref(1)
+            const qzsyTableStyle2PartHidden = ref(false)
+            const qzsyTableRows = ref([])
+            const qzsyTableLoading = ref(false)
+            const loadMoreQzsyNum = ref(48)
+
+            const moreQzsyTotal = ref(0)
+            const moreQzsyLoaded = ref(0)
+
+            let qzsyTableData = []
+            let currentTuiYunDate = null
+
+            function loadQzsyTable() {
+              return new Promise(async (resolve, reject) => {
+                let fields = form.value
+
+                let bt = getDateByStr(fields.birth)
+                let birth = `${parseInt(bt.year)},${parseInt(bt.month)},${parseInt(bt.day)},${parseInt(bt.hour)},${parseInt(
+                  bt.minute
+                )},${parseInt(bt.second)}`
+
+                let startNowDate = new Date(currentTuiYunDate.getTime())
+                startNowDate.setMinutes(startNowDate.getMinutes() - 6)
+                let startNow = `${startNowDate.getFullYear()},${
+                  startNowDate.getMonth() + 1
+                },${startNowDate.getDate()},${startNowDate.getHours()},${startNowDate.getMinutes()},0`
+
+                let endNowDate = new Date(currentTuiYunDate.getTime())
+                endNowDate.setMinutes(endNowDate.getMinutes() + 66)
+                let endNow = `${endNowDate.getFullYear()},${
+                  endNowDate.getMonth() + 1
+                },${endNowDate.getDate()},${endNowDate.getHours()},${endNowDate.getMinutes()},0`
+
+                qzsyTableLoading.value = true
+                sendRequest({
+                  url: `api/moira/getTableData?birth=${birth}&xingZhi=${fields.xingZhi}&startNow=${startNow}&endNow=${endNow}&zone=${
+                    fields.zone
+                  }&lat=${fields.lat}&lng=${fields.lng}&filterTime=minute&signDisplay=${signDisplay.join(',')}`
+                }).then(async tableDataResp => {
+                  // tableDataResp = tableData
+                  if (tableDataResp && tableDataResp.data && tableDataResp.data.list) {
+                    qzsyTableData.push(tableDataResp.data.list)
+
+                    await loadXingTable()
+                    handleQzsyTableData2Rows()
+
+                    // ElMessage(`${parseTime(currentTuiYunDate, '{y}-{m}-{d} {h}')}数据已加载完毕`)
+                    // currentTuiYunDate.setHours(currentTuiYunDate.getHours() + 1)
+                    moreQzsyLoaded.value = moreQzsyLoaded.value + 1
+                  }
+                  qzsyTableLoading.value = false
+                  resolve()
+                })
+              })
+            }
+
+            //将数据转换为行数据，Excel通用
+            function handleQzsyTableData2Rows() {
+              let currentTableStyle = qzsyTableStyle.value
+              let rows = []
+              qzsyTableData.map(currentTuiYunRow => {
+                let tuiYunHeader = [
+                  {
+                    v: currentTuiYunRow[7][0].now.substring(0, 13),
+                    s: {
+                      font: {
+                        bold: true
+                      },
+                      fill: { fgColor: { rgb: 'c6f76f' } }
+                    },
+                    style: 'font-weight:bold;color:#000000;background-color:#C6F76F'
+                  }
+                ]
+
+                currentTuiYunRow.map(data => {
+                  tuiYunHeader.push({
+                    v: data[0].now.substring(14, 16),
+                    s: {
+                      font: {
+                        bold: true
+                      },
+                      fill: { fgColor: { rgb: 'c6f76f' } }
+                    },
+                    style: 'font-weight:bold;color:#000000;background-color:#C6F76F'
+                  })
+                })
+                // tuiYunHeader.splice(tuiYunHeader.length - 1, 1) //去掉最后一列保证60
+                rows.push(tuiYunHeader)
+                let xingLabel = []
+                currentTuiYunRow[0].map(i => {
+                  xingLabel.push(i.xing)
+                })
+
+                let list = []
+                let su1List = []
+                let su2List = []
+                let gong1List = []
+                let gong2List = []
+
+                for (let index = 0; index < currentTuiYunRow[0].length; index++) {
+                  let su1HourList = []
+                  let su2HourList = []
+                  let gong1HourList = []
+                  let gong2HourList = []
+
+                  currentTuiYunRow.map(data => {
+                    su1HourList.push(parseInt(data[index].su1))
+                    su2HourList.push(parseInt(data[index].su2))
+                    gong1HourList.push(parseInt(data[index].gong1))
+                    gong2HourList.push(parseInt(data[index].gong2))
+                  })
+                  su1List.push(su1HourList)
+                  su2List.push(su2HourList)
+                  gong1List.push(gong1HourList)
+                  gong2List.push(gong2HourList)
+                }
+                list.push(su1List, su2List, gong1List, gong2List)
+                list.map((iData, index) => {
+                  // if (currentTableStyle == 2 && (index == 0 || index == 2)) {
+                  //   return iData
+                  // }
+                  iData.map((lData, idx) => {
+                    lData.unshift(xingLabel[idx])
+                    let row = []
+                    let temp = 0
+                    // lData.splice(lData.length - 1, 1) // 去掉最后一行保证只有60分钟数据
+                    lData.map((l, i) => {
+                      let fgColor = XIU_GONG_BG_COLORS[index]
+                      let isBold = false
+                      let isUnderline = false
+                      let fontColor = '000000'
+                      if (temp > l) {
+                        fgColor = XIU_GONG_BG_DOWN_COLORS[index]
+                        fontColor = 'ffffff'
+                        isBold = true
+                      } else if (temp < l) {
+                        fgColor = 'fd0404'
+                        fontColor = 'ffffff'
+                        isBold = true
+                      }
+                      let borderStyle = 'thin'
+                      let broderColor = 'ffffff'
+                      if (i >= 33 && i <= 43) {
+                        isUnderline = true
+                      }
+                      if (i == 32 || i == 43) {
+                        borderStyle = ''
+                        broderColor = '0728e2'
+                      }
+
+                      // 构造sytle
+                      let style = `background-color:#${fgColor};font-weight:${isBold ? 'bold' : 'normal'};color:#${fontColor}`
+
+                      row.push({
+                        v: l,
+                        s: {
+                          fill: { fgColor: { rgb: fgColor } },
+                          font: {
+                            bold: isBold,
+                            color: { rgb: fontColor },
+                            underline: isUnderline
+                          },
+                          alignment: { horizontal: 'center' },
+                          border: {
+                            right: { style: borderStyle, color: { rgb: broderColor } },
+                            left: { style: 'thin' },
+                            top: { style: 'thin' },
+                            bottom: { style: 'thin' }
+                          }
+                        },
+                        style: style
+                      })
+                      temp = l
+                    })
+                    rows.push(row)
+                  })
+                })
+              })
+
+              if (currentTableStyle == 2) {
+                rows = []
+
+                qzsyTableData.map((ctr, currentIdx) => {
+                  let subRows = []
+                  let staticSubRows = []
+                  // 从星盘行列数据里取数据插入
+                  let xingHdTuiYunRow = xingTableData[0][currentIdx]
+                  let xingGwTuiYunRow = xingTableData[1][currentIdx]
+
+                  let currentTuiYunRow = []
+                  ctr.map((ctrData, cIdx) => {
+                    let ctrD = []
+                    Object.assign(ctrD, ctrData)
+                    let insertIdx = ctrData.findIndex(item => {
+                      return item.xing == '福'
+                    })
+                    let insertData = []
+                    xingHdTuiYunRow[cIdx].map(r => {
+                      r.isXing = true
+                      if (r.xing == '醫' || r.xing == '穀' || r.xing == '智' || r.xing == '婚' || r.xing == '灶') insertData.push(r)
+                    })
+                    xingGwTuiYunRow[cIdx].map((r, i) => {
+                      r.isXing = true
+                      insertData.push(r)
+                    })
+                    if (insertIdx != -1) ctrD.splice(insertIdx, 0, ...insertData)
+                    currentTuiYunRow.push(ctrD)
+                  })
+
+                  let xingLabel = []
+                  currentTuiYunRow[0].map(i => {
+                    xingLabel.push(i.xing)
+                  })
+                  let tuiYunHeader = [
+                    {
+                      v: currentTuiYunRow[7][0].now.substring(0, 13),
+                      s: {
+                        font: {
+                          bold: true
+                        },
+                        fill: { fgColor: { rgb: 'c6f76f' } }
+                      },
+                      style: 'font-weight:bold;color:#000000;background-color:#C6F76F'
+                    }
+                  ]
+
+                  currentTuiYunRow.map(data => {
+                    tuiYunHeader.push({
+                      v: data[0].now.substring(14, 16),
+                      s: {
+                        font: {
+                          bold: true
+                        },
+                        fill: { fgColor: { rgb: 'c6f76f' } }
+                      },
+                      style: 'font-weight:bold;color:#000000;background-color:#C6F76F'
+                    })
+                  })
+
+                  // tuiYunHeader.splice(tuiYunHeader.length - 1, 1) //去掉最后一列保证60
+
+                  subRows.push(tuiYunHeader)
+
+                  let style3List = []
+                  for (let index = 0; index < currentTuiYunRow[0].length; index++) {
+                    let su1 = []
+                    let su2 = []
+                    let gong1 = []
+                    let gong2 = []
+
+                    currentTuiYunRow.map(item => {
+                      if (item[index].isXing) {
+                        // 处理占星数据没有宫数据
+                        su1.push(parseInt(item[index].su1))
+                        su2.push(parseInt(item[index].su1))
+                        gong1.push(parseInt(item[index].su2))
+                        gong2.push(parseInt(item[index].su2))
+                      } else {
+                        su1.push(parseInt(item[index].su1))
+                        su2.push(parseInt(item[index].su2))
+                        gong1.push(parseInt(item[index].gong1))
+                        gong2.push(parseInt(item[index].gong2))
+                      }
+                    })
+                    style3List.push([su1, su2, gong1, gong2])
+                  }
+
+                  style3List.map((iData, index) => {
+                    iData.map((lData, idx) => {
+                      if (idx == 0 || idx == 2) {
+                        if (xingLabel[index] != '福' && xingLabel[index] != '升' && xingLabel[index] != '顶') {
+                          return
+                        }
+                      }
+
+                      let diffData = []
+                      Object.assign(diffData, lData)
+
+                      row = []
+                      staticSubRow = [] //变化比较少的行
+
+                      temp = lData[0]
+                      lData.unshift(xingLabel[index])
+                      // 计算差值list
+                      let diffs = []
+                      diffData.map((l, i) => {
+                        if (i == diffData.length - 1) {
+                          return
+                        }
+                        if (l <= diffData[i + 1]) {
+                          diffs.push(Math.abs(diffData[i + 1] - l))
+                        } else {
+                          diffs.push(Math.abs(diffData[i + 1] + 60 - l))
+                        }
+                      })
+                      diffs.unshift(99)
+                      temp = diffs[0]
+
+                      let tempL = lData[1]
+                      lData.map((l, i) => {
+                        let fgColor = '8DB4E2'
+                        let isBold = false
+                        let isUnderline = false
+                        let fontColor = '000000'
+
+                        if (
+                          xingLabel[index] == '福' ||
+                          xingLabel[index] == '升' ||
+                          xingLabel[index] == '顶' ||
+                          xingLabel[index] == '身' ||
+                          xingLabel[index] == '月'
+                        ) {
+                          fgColor = '538DD5'
+                        }
+
+                        if (i > 1 && i < lData.length - 1 && temp > diffs[i]) {
+                          fontColor = 'ffffff'
+                          if (xingLabel[index] == '福') {
+                            fgColor = F_BG_CHANGE_COLORS_2[idx]
+                          } else if (xingLabel[index] == '升') {
+                            fgColor = S_BG_CHANGE_COLORS_2[idx]
+                          } else if (xingLabel[index] == '顶') {
+                            fgColor = D_BG_CHANGE_COLORS_2[idx]
+                          } else {
+                            if (xingLabel[index] == '身' || xingLabel[index] == '月') {
+                              fgColor = 'C5D9F1'
+                              fontColor = '0000ff'
+                            } else {
+                              if (
+                                xingLabel[index] == '命宫' ||
+                                xingLabel[index] == '财帛' ||
+                                xingLabel[index] == '兄弟' ||
+                                xingLabel[index] == '田宅' ||
+                                xingLabel[index] == '男女' ||
+                                xingLabel[index] == '奴仆' ||
+                                xingLabel[index] == '夫妻' ||
+                                xingLabel[index] == '疾厄' ||
+                                xingLabel[index] == '迁移' ||
+                                xingLabel[index] == '官禄' ||
+                                xingLabel[index] == '福德' ||
+                                xingLabel[index] == '相貌'
+                              ) {
+                                fgColor = '7030A0'
+                                fontColor = 'ffffff'
+                              } else {
+                                fgColor = 'd16a12'
+                                fontColor = 'ffffff'
+                              }
+                            }
+                          }
+                          isBold = true
+                        }
+
+                        // if ((l == 0 && tempL != 0) || (l == 60 && tempL != 60)) {
+                        //   fgColor = '000000'
+                        //   fontColor = 'ffffff'
+                        //   isBold = true
+                        // }
+                        temp = diffs[i]
+                        tempL = l
+
+                        let borderStyle = 'thin'
+                        let broderColor = 'ffffff'
+                        if (i >= 39 && i <= 49) {
+                          isUnderline = true
+                        }
+                        if (i == 38 || i == 49) {
+                          borderStyle = ''
+                          broderColor = '0728e2'
+                        }
+                        // 构造sytle
+                        let style = `background-color:#${fgColor};font-weight:${isBold ? 'bold' : 'normal'};color:#${fontColor}`
+                        row.push({
+                          v: l,
+                          s: {
+                            fill: { fgColor: { rgb: fgColor } },
+                            font: {
+                              bold: isBold,
+                              color: { rgb: fontColor },
+                              underline: isUnderline
+                            },
+                            alignment: { horizontal: 'center' },
+                            border: {
+                              right: { style: borderStyle, color: { rgb: broderColor } },
+                              left: { style: 'thin' },
+                              top: { style: 'thin' },
+                              bottom: { style: 'thin' }
+                            }
+                          },
+                          style: style
+                        })
+                      })
+                      // }
+                      subRows.push(row)
+                      staticSubRows.push(staticSubRow)
+                    })
+                  })
+
+                  // 顺序调整
+                  // 移动身
+                  let firstShen = subRows.findIndex(item => {
+                    return item[0].v == '身'
+                  })
+                  let shenArr = subRows.splice(firstShen, 2)
+                  let firstDIdx = subRows.findIndex(item => {
+                    return item[0].v == '顶'
+                  })
+                  subRows.splice(firstDIdx + 4, 0, ...shenArr)
+
+                  // 移动月
+                  let firstYue = subRows.findIndex(item => {
+                    return item[0].v == '月'
+                  })
+                  let yueArr = subRows.splice(firstYue, 2)
+                  firstShen = subRows.findIndex(item => {
+                    return item[0].v == '身'
+                  })
+                  subRows.splice(firstShen + 2, 0, ...yueArr)
+
+                  // 移动顶4
+                  firstDIdx = subRows.findIndex(item => {
+                    return item[0].v == '顶'
+                  })
+                  let dArr = subRows.splice(firstDIdx + 3, 1)
+                  firstYue = subRows.findIndex(item => {
+                    return item[0].v == '月'
+                  })
+                  subRows.splice(firstYue + 2, 0, ...dArr)
+
+                  // 移动顶3
+                  firstDIdx = subRows.findIndex(item => {
+                    return item[0].v == '顶'
+                  })
+                  dArr = subRows.splice(firstDIdx + 2, 1)
+                  firstYue = subRows.findIndex(item => {
+                    return item[0].v == '月'
+                  })
+                  subRows.splice(firstYue + 3, 0, ...dArr)
+
+                  // 移动升4
+                  firstSIdx = subRows.findIndex(item => {
+                    return item[0].v == '升'
+                  })
+                  let sArr = subRows.splice(firstSIdx + 3, 1)
+                  firstYue = subRows.findIndex(item => {
+                    return item[0].v == '月'
+                  })
+                  subRows.splice(firstYue + 4, 0, ...sArr)
+
+                  // 移动升3
+                  firstSIdx = subRows.findIndex(item => {
+                    return item[0].v == '升'
+                  })
+                  sArr = subRows.splice(firstSIdx + 2, 1)
+                  firstYue = subRows.findIndex(item => {
+                    return item[0].v == '月'
+                  })
+                  subRows.splice(firstYue + 5, 0, ...sArr)
+
+                  // 移动福4
+                  firstFIdx = subRows.findIndex(item => {
+                    return item[0].v == '福'
+                  })
+                  let fArr = subRows.splice(firstFIdx + 3, 1)
+                  firstYue = subRows.findIndex(item => {
+                    return item[0].v == '月'
+                  })
+                  subRows.splice(firstYue + 6, 0, ...fArr)
+
+                  // 移动福3
+                  firstFIdx = subRows.findIndex(item => {
+                    return item[0].v == '福'
+                  })
+                  fArr = subRows.splice(firstFIdx + 2, 1)
+                  firstYue = subRows.findIndex(item => {
+                    return item[0].v == '月'
+                  })
+                  subRows.splice(firstYue + 7, 0, ...fArr)
+
+                  // 宫位文案对应数据做右边样式修改，一个词拆成2个字。
+                  subRows.map((r, i) => {
+                    if (r[0].v.length == 2) {
+                      r[0].v = r[0].v[i % 2 == 1 ? 0 : 1]
+                      return r
+                    }
+                  })
+                  rows = rows.concat(subRows)
+                })
+              }
+
+              if (currentTableStyle == 3) {
+                rows = []
+
+                qzsyTableData.map((ctr, currentIdx) => {
+                  let subRows = []
+                  let staticSubRows = []
+                  // 从星盘行列数据里取数据插入
+                  let xingHdTuiYunRow = xingTableData[0][currentIdx]
+                  let xingGwTuiYunRow = xingTableData[1][currentIdx]
+
+                  let currentTuiYunRow = []
+                  ctr.map((ctrData, cIdx) => {
+                    let ctrD = []
+                    Object.assign(ctrD, ctrData)
+                    let insertIdx = ctrData.findIndex(item => {
+                      return item.xing == '福'
+                    })
+                    let insertData = []
+                    xingHdTuiYunRow[cIdx].map(r => {
+                      r.isXing = true
+                      if (r.xing == '醫' || r.xing == '穀' || r.xing == '智' || r.xing == '婚' || r.xing == '灶') insertData.push(r)
+                    })
+                    xingGwTuiYunRow[cIdx].map((r, i) => {
+                      r.isXing = true
+                      insertData.push(r)
+                    })
+                    if (insertIdx != -1) ctrD.splice(insertIdx, 0, ...insertData)
+                    currentTuiYunRow.push(ctrD)
+                  })
+
+                  let xingLabel = []
+                  currentTuiYunRow[0].map(i => {
+                    xingLabel.push(i.xing)
+                  })
+                  let tuiYunHeader = [
+                    {
+                      v: currentTuiYunRow[7][0].now.substring(0, 13),
+                      s: {
+                        font: {
+                          bold: true
+                        },
+                        fill: { fgColor: { rgb: 'c6f76f' } },
+                        border: DEFAULT_EXCEL_BORDER_STYLE,
+                        alignment: DEFAULT_EXCEL_ALIGN_STYLE
+                      },
+                      style: 'font-weight:bold;color:#000000;background-color:#C6F76F'
+                    }
+                  ]
+
+                  currentTuiYunRow.map(data => {
+                    tuiYunHeader.push({
+                      v: data[0].now.substring(14, 16),
+                      s: {
+                        font: {
+                          bold: true
+                        },
+                        fill: { fgColor: { rgb: 'c6f76f' } },
+                        border: DEFAULT_EXCEL_BORDER_STYLE,
+                        alignment: DEFAULT_EXCEL_ALIGN_STYLE
+                      },
+                      style: 'font-weight:bold;color:#000000;background-color:#C6F76F'
+                    })
+                  })
+
+                  // tuiYunHeader.splice(tuiYunHeader.length - 1, 1) //去掉最后一列保证60
+
+                  subRows.push(tuiYunHeader)
+
+                  let style3List = []
+                  for (let index = 0; index < currentTuiYunRow[0].length; index++) {
+                    let su1 = []
+                    let su2 = []
+                    let gong1 = []
+                    let gong2 = []
+
+                    currentTuiYunRow.map(item => {
+                      if (item[index].isXing) {
+                        // 处理占星数据没有宫数据
+                        su1.push(parseInt(item[index].su1))
+                        su2.push(parseInt(item[index].su1))
+                        gong1.push(parseInt(item[index].su2))
+                        gong2.push(parseInt(item[index].su2))
+                      } else {
+                        su1.push(parseInt(item[index].su1))
+                        su2.push(parseInt(item[index].su2))
+                        gong1.push(parseInt(item[index].gong1))
+                        gong2.push(parseInt(item[index].gong2))
+                      }
+                    })
+                    style3List.push([su1, su2, gong1, gong2])
+                  }
+
+                  style3List.map((iData, index) => {
+                    iData.map((lData, idx) => {
+                      if (idx == 0 || idx == 2) {
+                        if (xingLabel[index] != '福' && xingLabel[index] != '升' && xingLabel[index] != '顶') {
+                          return
+                        }
+                      }
+
+                      let diffData = []
+                      Object.assign(diffData, lData)
+
+                      row = []
+                      staticSubRow = [] //变化比较少的行
+
+                      temp = lData[0]
+                      lData.unshift(xingLabel[index])
+                      // 计算差值list
+                      let diffs = []
+                      diffData.map((l, i) => {
+                        if (i == diffData.length - 1) {
+                          return
+                        }
+                        if (l <= diffData[i + 1]) {
+                          diffs.push(Math.abs(diffData[i + 1] - l))
+                        } else {
+                          diffs.push(Math.abs(diffData[i + 1] + 60 - l))
+                        }
+                      })
+                      diffs.unshift(99)
+
+                      temp = diffs[0]
+
+                      // 处理静态数据
+                      lData.map((l, i) => {
+                        if (
+                          xingLabel[index] == '醫' ||
+                          xingLabel[index] == '穀' ||
+                          xingLabel[index] == '智' ||
+                          xingLabel[index] == '婚' ||
+                          xingLabel[index] == '灶' ||
+                          xingLabel[index] == '金' ||
+                          xingLabel[index] == '木' ||
+                          xingLabel[index] == '水' ||
+                          xingLabel[index] == '火' ||
+                          xingLabel[index] == '土' ||
+                          xingLabel[index] == '天' ||
+                          xingLabel[index] == '海' ||
+                          xingLabel[index] == '冥' ||
+                          xingLabel[index] == '计' ||
+                          xingLabel[index] == '罗' ||
+                          xingLabel[index] == '炁' ||
+                          xingLabel[index] == '孛' ||
+                          xingLabel[index] == '命' ||
+                          xingLabel[index] == '日'
+                        ) {
+                          if (i > 1 && i < lData.length - 1 && temp > diffs[i]) {
+                            staticSubRow.push(xingLabel[index])
+                          } else {
+                            staticSubRow.push('')
+                          }
+                          temp = diffs[i]
+                        }
+                      })
+                      // console.log('staticSubRow', staticSubRow)
+                      if (
+                        xingLabel[index] == '醫' ||
+                        xingLabel[index] == '穀' ||
+                        xingLabel[index] == '智' ||
+                        xingLabel[index] == '婚' ||
+                        xingLabel[index] == '灶' ||
+                        xingLabel[index] == '金' ||
+                        xingLabel[index] == '木' ||
+                        xingLabel[index] == '水' ||
+                        xingLabel[index] == '火' ||
+                        xingLabel[index] == '土' ||
+                        xingLabel[index] == '天' ||
+                        xingLabel[index] == '海' ||
+                        xingLabel[index] == '冥' ||
+                        xingLabel[index] == '计' ||
+                        xingLabel[index] == '罗' ||
+                        xingLabel[index] == '炁' ||
+                        xingLabel[index] == '孛' ||
+                        xingLabel[index] == '命' ||
+                        xingLabel[index] == '日'
+                      ) {
+                        if (qzsyTableStyle2PartHidden.value) {
+                          staticSubRows.push(staticSubRow)
+                          return
+                        }
+                      }
+                      // console.log('diffs', diffs)
+                      // console.log('lData', lData)
+                      let tempL = lData[1]
+                      lData.map((l, i) => {
+                        let fgColor = '8DB4E2'
+                        let isBold = false
+                        let isUnderline = false
+                        let fontColor = '000000'
+
+                        if (
+                          xingLabel[index] == '福' ||
+                          xingLabel[index] == '升' ||
+                          xingLabel[index] == '顶' ||
+                          xingLabel[index] == '身' ||
+                          xingLabel[index] == '月'
+                        ) {
+                          fgColor = '538DD5'
+                        }
+
+                        if (i > 1 && i < lData.length - 1 && temp > diffs[i]) {
+                          fontColor = 'ffffff'
+                          if (xingLabel[index] == '福') {
+                            fgColor = F_BG_CHANGE_COLORS_2[idx]
+                          } else if (xingLabel[index] == '升') {
+                            fgColor = S_BG_CHANGE_COLORS_2[idx]
+                          } else if (xingLabel[index] == '顶') {
+                            fgColor = D_BG_CHANGE_COLORS_2[idx]
+                          } else {
+                            if (xingLabel[index] == '身' || xingLabel[index] == '月') {
+                              fgColor = 'C5D9F1'
+                              fontColor = '0000ff'
+                            } else {
+                              if (
+                                xingLabel[index] == '命宫' ||
+                                xingLabel[index] == '财帛' ||
+                                xingLabel[index] == '兄弟' ||
+                                xingLabel[index] == '田宅' ||
+                                xingLabel[index] == '男女' ||
+                                xingLabel[index] == '奴仆' ||
+                                xingLabel[index] == '夫妻' ||
+                                xingLabel[index] == '疾厄' ||
+                                xingLabel[index] == '迁移' ||
+                                xingLabel[index] == '官禄' ||
+                                xingLabel[index] == '福德' ||
+                                xingLabel[index] == '相貌'
+                              ) {
+                                fgColor = '7030A0'
+                                fontColor = 'ffffff'
+                              } else {
+                                fgColor = 'd16a12'
+                                fontColor = 'ffffff'
+                              }
+                            }
+                          }
+                          isBold = true
+                        }
+
+                        // if ((l == 0 && tempL != 0) || (l == 60 && tempL != 60)) {
+                        //   fgColor = '000000'
+                        //   fontColor = 'ffffff'
+                        //   isBold = true
+                        // }
+                        temp = diffs[i]
+                        tempL = l
+
+                        let borderStyle = 'thin'
+                        let broderColor = 'ffffff'
+                        if (i >= 39 && i <= 49) {
+                          isUnderline = true
+                        }
+                        if (i == 38 || i == 49) {
+                          borderStyle = ''
+                          broderColor = '0728e2'
+                        }
+                        // 构造sytle
+                        let style = `background-color:#${fgColor};font-weight:${isBold ? 'bold' : 'normal'};color:#${fontColor}`
+                        row.push({
+                          v: l,
+                          s: {
+                            fill: { fgColor: { rgb: fgColor } },
+                            font: {
+                              bold: isBold,
+                              color: { rgb: fontColor },
+                              underline: isUnderline
+                            },
+                            alignment: DEFAULT_EXCEL_ALIGN_STYLE,
+                            border: {
+                              right: { style: borderStyle, color: { rgb: broderColor } },
+                              left: { style: 'thin' },
+                              top: { style: 'thin' },
+                              bottom: { style: 'thin' }
+                            }
+                          },
+                          style: style
+                        })
+                      })
+                      // }
+                      subRows.push(row)
+                      staticSubRows.push(staticSubRow)
+                    })
+                  })
+
+                  // 顺序调整
+                  // 移动身
+                  let firstShen = subRows.findIndex(item => {
+                    return item[0].v == '身'
+                  })
+                  let shenArr = subRows.splice(firstShen, 2)
+                  let firstDIdx = subRows.findIndex(item => {
+                    return item[0].v == '顶'
+                  })
+                  subRows.splice(firstDIdx + 4, 0, ...shenArr)
+
+                  // 移动月
+                  let firstYue = subRows.findIndex(item => {
+                    return item[0].v == '月'
+                  })
+                  let yueArr = subRows.splice(firstYue, 2)
+                  firstShen = subRows.findIndex(item => {
+                    return item[0].v == '身'
+                  })
+                  subRows.splice(firstShen + 2, 0, ...yueArr)
+
+                  // 移动顶4
+                  firstDIdx = subRows.findIndex(item => {
+                    return item[0].v == '顶'
+                  })
+                  let dArr = subRows.splice(firstDIdx + 3, 1)
+                  firstYue = subRows.findIndex(item => {
+                    return item[0].v == '月'
+                  })
+                  subRows.splice(firstYue + 2, 0, ...dArr)
+
+                  // 移动顶3
+                  firstDIdx = subRows.findIndex(item => {
+                    return item[0].v == '顶'
+                  })
+                  dArr = subRows.splice(firstDIdx + 2, 1)
+                  firstYue = subRows.findIndex(item => {
+                    return item[0].v == '月'
+                  })
+                  subRows.splice(firstYue + 3, 0, ...dArr)
+
+                  // 移动升4
+                  firstSIdx = subRows.findIndex(item => {
+                    return item[0].v == '升'
+                  })
+                  let sArr = subRows.splice(firstSIdx + 3, 1)
+                  firstYue = subRows.findIndex(item => {
+                    return item[0].v == '月'
+                  })
+                  subRows.splice(firstYue + 4, 0, ...sArr)
+
+                  // 移动升3
+                  firstSIdx = subRows.findIndex(item => {
+                    return item[0].v == '升'
+                  })
+                  sArr = subRows.splice(firstSIdx + 2, 1)
+                  firstYue = subRows.findIndex(item => {
+                    return item[0].v == '月'
+                  })
+                  subRows.splice(firstYue + 5, 0, ...sArr)
+
+                  // 移动福4
+                  firstFIdx = subRows.findIndex(item => {
+                    return item[0].v == '福'
+                  })
+                  let fArr = subRows.splice(firstFIdx + 3, 1)
+                  firstYue = subRows.findIndex(item => {
+                    return item[0].v == '月'
+                  })
+                  subRows.splice(firstYue + 6, 0, ...fArr)
+
+                  // 移动福3
+                  firstFIdx = subRows.findIndex(item => {
+                    return item[0].v == '福'
+                  })
+                  fArr = subRows.splice(firstFIdx + 2, 1)
+                  firstYue = subRows.findIndex(item => {
+                    return item[0].v == '月'
+                  })
+                  subRows.splice(firstYue + 7, 0, ...fArr)
+
+                  // 宫位文案对应数据做右边样式修改，一个词拆成2个字。
+                  subRows.map((r, i) => {
+                    if (r[0].v.length == 2) {
+                      r[0].v = r[0].v[i % 2 == 1 ? 0 : 1]
+                      return r
+                    }
+                  })
+                  // 整合固定行信息
+                  // let staticRow = []
+                  // subRows[0].map((item, i) => {
+                  //   let r = []
+                  //   staticSubRows.map(ssr => {
+                  //     if (ssr[i] && ssr[i] != '') {
+                  //       r.push(ssr[i])
+                  //       return
+                  //     }
+                  //   })
+                  //   staticRow.push({
+                  //     v: r.join(''),
+                  //     s: {
+                  //       font: {
+                  //         bold: true
+                  //       },
+                  //       fill: { fgColor: { rgb: 'c6f76f' } }
+                  //     },
+                  //     style: 'color:#000000;background-color:#C6F76F;height:100px;line-height: 17px;'
+                  //   })
+                  // })
+                  // subRows.splice(1, 0, staticRow)
+                  let insertHeader = [
+                    {
+                      v: currentTuiYunRow[7][0].now.substring(0, 13),
+                      s: {
+                        font: {
+                          bold: true
+                        },
+                        fill: { fgColor: { rgb: '00FFFF' } },
+                        border: DEFAULT_EXCEL_BORDER_STYLE,
+                        alignment: DEFAULT_EXCEL_ALIGN_STYLE
+                      },
+                      style: 'font-weight:bold;color:#000000;background-color:#00FFFF'
+                    }
+                  ]
+                  currentTuiYunRow.map(data => {
+                    insertHeader.push({
+                      v: data[0].now.substring(14, 16),
+                      s: {
+                        font: {
+                          bold: true
+                        },
+                        fill: { fgColor: { rgb: '00FFFF' } },
+                        border: DEFAULT_EXCEL_BORDER_STYLE,
+                        alignment: DEFAULT_EXCEL_ALIGN_STYLE
+                      },
+                      style: 'font-weight:bold;color:#000000;background-color:#00FFFF'
+                    })
+                  })
+                  subRows.push(insertHeader)
+                  let maxStatic = 0
+                  let staticRowItems = []
+                  subRows[0].map((item, i) => {
+                    let r = []
+                    staticSubRows.map(ssr => {
+                      if (ssr[i] && ssr[i] != '') {
+                        r.push(ssr[i])
+                        return
+                      }
+                    })
+                    staticRowItems.push(r)
+                    if (maxStatic < r.length) {
+                      maxStatic = r.length
+                    }
+                  })
+                  let staticRows = []
+                  let XING_COLOR_MAP = {
+                    命: 'CC0099',
+                    日: 'FF0066',
+                    金: 'FFFF00',
+                    木: '00B050',
+                    水: '00B0F0',
+                    火: 'FF0066',
+                    土: '974706',
+                    天: '00B0F0',
+                    海: '00B0F0',
+                    冥: '00B0F0',
+                    计: '974706',
+                    罗: '974706',
+                    炁: 'FF0066',
+                    孛: 'FFFF00',
+                    醫: 'CC0099',
+                    穀: '00B050',
+                    智: '00B0F0',
+                    婚: 'FF00FF',
+                    灶: 'FFFF00'
+                  }
+                  maxStatic = maxStatic < 4 ? 4 : maxStatic
+                  for (let i = 0; i < maxStatic; i++) {
+                    let staticRow = []
+                    staticRowItems.map((item, idx) => {
+                      let obj = {
+                        v: idx == 0 ? 'ST' : '',
+                        s: {
+                          font: {
+                            bold: true
+                          },
+                          fill: { fgColor: { rgb: '9BBCFF' } },
+                          border: DEFAULT_EXCEL_BORDER_STYLE,
+                          alignment: DEFAULT_EXCEL_ALIGN_STYLE
+                        },
+                        style: 'font-weight:bold;color:#000000;background-color:#9BBCFF'
+                      }
+
+                      if (item[i]) {
+                        obj.v = item[i]
+                        obj.s.fill.fgColor.rgb = XING_COLOR_MAP[item[i]]
+                        obj.style = 'font-weight:bold;color:#000000;background-color:#' + XING_COLOR_MAP[item[i]]
+                      }
+                      staticRow.push(obj)
+                    })
+                    staticRows.push(staticRow)
+                  }
+
+                  for (let i = 0; i < 6; i++) {
+                    let staticRow = []
+                    staticRowItems.map((item, i) => {
+                      staticRow.push({
+                        v: i == 0 ? 'ST' : '',
+                        s: {
+                          font: {
+                            bold: true
+                          },
+                          fill: { fgColor: { rgb: 'B7DEE8' } },
+                          border: DEFAULT_EXCEL_BORDER_STYLE,
+                          alignment: DEFAULT_EXCEL_ALIGN_STYLE
+                        },
+                        style: 'font-weight:bold;color:#000000;background-color:#B7DEE8'
+                      })
+                    })
+                    staticRows.push(staticRow)
+                  }
+
+                  subRows = subRows.concat(staticRows)
+                  rows = rows.concat(subRows)
+                })
+              }
+
+              qzsyTableRows.value = []
+              qzsyTableRows.value = rows
+            }
+
+            async function onLoadMoreQzsyTable(num) {
+              moreQzsyTotal.value = num
+              moreQzsyLoaded.value = 0
+              for (let index = 0; index < num; index++) {
+                await loadQzsyTable()
+              }
+            }
+
+            function onClickQzsyTable2Excel() {
+              const wb = XLSX.utils.book_new()
+              const ws = XLSX.utils.aoa_to_sheet(qzsyTableRows.value)
+              XLSX.utils.book_append_sheet(wb, ws, 'readme demo')
+              let colsWidths = []
+              colsWidths.push({ wch: 3 })
+              qzsyTableRows.value[0].map(data => {
+                colsWidths.push({ wch: 3 })
+              })
+              ws['!cols'] = colsWidths
+              XLSX.writeFile(wb, '七政四余推运表_' + parseInt(new Date().getTime() / 1000) + '.xlsx')
+            }
+
+            function onClickQzsyTable2Pic() {
+              savePicById('qzsyTableContent')
+            }
+
+            function onClearQzsyTableData() {
+              qzsyTableData = []
+              qzsyTableRows.value = []
+            }
+
+            function onCloseQzsyTableDialog() {
+              dialogQzsyTableVisible.value = false
+              onClearQzsyTableData()
+              onClearXingTableData()
+            }
+
+            function onOpenQzsyTableDialog() {
+              proxy.$refs['formRef'].validate(async valid => {
+                if (valid) {
+                  let lt = getDateByStr(form.value.now)
+                  currentTuiYunDate = new Date('2000-01-01 01:00:00')
+                  currentTuiYunDate.setFullYear(lt.year)
+                  currentTuiYunDate.setMonth(lt.month - 1)
+                  currentTuiYunDate.setDate(lt.day)
+                  currentTuiYunDate.setHours(lt.hour)
+                  currentTuiYunDate.setMinutes(0)
+                  currentTuiYunDate.setSeconds(0)
+                  dialogQzsyTableVisible.value = true
+                  onLoadMoreQzsyTable(1)
+                }
+              })
+            }
+            // ******七政四余推运 END
+
+            // ******占星推运 START
+            const dialogXingTableVisible = ref(false)
+            const xingTableStyle = ref(1)
+            const xingTableRows = ref([[], []])
+            const xingTableLoading = ref(false)
+            let xingTableData = [[], []]
+            const xingTableTabSelect = ref(0)
+
+            function loadXingTable() {
+              return new Promise((resolve, reject) => {
+                let fields = form.value
+
+                let bt = getDateByStr(fields.birth)
+                let birth = `${parseInt(bt.year)},${parseInt(bt.month)},${parseInt(bt.day)},${parseInt(bt.hour)},${parseInt(
+                  bt.minute
+                )},${parseInt(bt.second)}`
+
+                let startNowDate = new Date(currentTuiYunDate.getTime())
+                startNowDate.setMinutes(startNowDate.getMinutes() - 6)
+                let startNow = `${startNowDate.getFullYear()},${
+                  startNowDate.getMonth() + 1
+                },${startNowDate.getDate()},${startNowDate.getHours()},${startNowDate.getMinutes()},0`
+
+                let endNowDate = new Date(currentTuiYunDate.getTime())
+                endNowDate.setMinutes(endNowDate.getMinutes() + 66)
+                let endNow = `${endNowDate.getFullYear()},${
+                  endNowDate.getMonth() + 1
+                },${endNowDate.getDate()},${endNowDate.getHours()},${endNowDate.getMinutes()},0`
+
+                xingTableLoading.value = true
+                sendRequest({
+                  url: `api/moira/getZxTableData?birth=${birth}&xingPan=4&startNow=${startNow}&endNow=${endNow}&zone=${fields.zone}&lat=${
+                    fields.lat
+                  }&lng=${fields.lng}&filterTime=minute&astroSignDisplay=${astroSignDisplay.join(',')}`
+                }).then(tableDataResp => {
+                  // tableDataResp = zxTableData
+                  if (tableDataResp && tableDataResp.data && tableDataResp.data.liuNianGw && tableDataResp.data.liuNianHd) {
+                    xingTableData[0].push(tableDataResp.data.liuNianHd)
+                    xingTableData[1].push(tableDataResp.data.liuNianGw)
+                    handleXingTableRows2Rows()
+                    ElMessage(`${parseTime(currentTuiYunDate, '{y}-{m}-{d} {h}')}数据已加载完毕`)
+                    currentTuiYunDate.setHours(currentTuiYunDate.getHours() + 1)
+                  }
+                  xingTableLoading.value = false
+                  resolve()
+                })
+              })
+            }
+
+            //将数据转换为行数据，Excel通用
+            function handleXingTableRows2Rows() {
+              let currentTableStyle = qzsyTableStyle.value
+              for (let xtIdx = 0; xtIdx < xingTableData.length; xtIdx++) {
+                const element = xingTableData[xtIdx]
+                let rows = []
+                element.map((currentTuiYunRow, rowIdx) => {
+                  let tuiYunHeader = [
+                    {
+                      v: currentTuiYunRow[7][0].now.substring(0, 13),
+                      s: {
+                        font: {
+                          bold: true
+                        }
+                      },
+                      style: 'font-weight:bold;color:#000000'
+                    }
+                  ]
+                  currentTuiYunRow.map(data => {
+                    tuiYunHeader.push({ v: data[0].now.substring(14, 16), style: 'font-weight:bold;color:#000000' })
+                  })
+                  rows.push(tuiYunHeader)
+
+                  let list = []
+                  let su1List = []
+                  let su2List = []
+
+                  let labels = []
+                  for (let index = 0; index < currentTuiYunRow[0].length; index++) {
+                    let su1HourList = []
+                    let su2HourList = []
+                    labels.push(currentTuiYunRow[0][index].xing)
+                    currentTuiYunRow.map(data => {
+                      su1HourList.push(parseInt(data[index].su1))
+                      su2HourList.push(parseInt(data[index].su2))
+                    })
+                    su1List.push(su1HourList)
+                    su2List.push(su2HourList)
+                  }
+
+                  list.push(su1List, su2List)
+
+                  list.map((iData, index) => {
+                    iData.map((lData, idx) => {
+                      lData.unshift(labels[idx])
+                      let row = []
+                      let temp = 0
+                      lData.map((l, i) => {
+                        let fgColor = XIU_GONG_BG_COLORS[index]
+                        let isBold = false
+                        let isUnderline = false
+                        let fontColor = '000000'
+
+                        if (temp > l) {
+                          fgColor = XIU_GONG_BG_DOWN_COLORS[index]
+                          fontColor = 'ffffff'
+                          isBold = true
+                        } else if (temp < l) {
+                          fgColor = 'fd0404'
+                          fontColor = 'ffffff'
+                          isBold = true
+                        }
+                        let borderStyle = 'thin'
+                        let broderColor = 'ffffff'
+                        if (i >= 33 && i <= 43) {
+                          isUnderline = true
+                        }
+                        if (i == 32 || i == 43) {
+                          borderStyle = ''
+                          broderColor = '0728e2'
+                        }
+                        // 构造sytle
+                        let style = `background-color:#${fgColor};font-weight:${isBold ? 'bold' : 'normal'};color:#${fontColor}`
+                        row.push({
+                          v: l,
+                          s: {
+                            fill: { fgColor: { rgb: fgColor } },
+                            font: {
+                              bold: isBold,
+                              color: { rgb: fontColor },
+                              underline: isUnderline
+                            },
+                            alignment: { horizontal: 'center' },
+                            border: {
+                              right: { style: borderStyle, color: { rgb: broderColor } },
+                              left: { style: 'thin' },
+                              top: { style: 'thin' },
+                              bottom: { style: 'thin' }
+                            }
+                          },
+                          style: style
+                        })
+                        temp = l
+                      })
+                      rows.push(row)
+                    })
+                  })
+                })
+
+                xingTableRows.value[xtIdx] = []
+                xingTableRows.value[xtIdx] = rows
+              }
+            }
+
+            async function onLoadMoreXingTable(num) {
+              for (let index = 0; index < num; index++) {
+                await loadXingTable()
+              }
+            }
+
+            function onClickXingTable2Excel() {
+              xingTableRows.value.map((rows, idx) => {
+                const wb = XLSX.utils.book_new()
+                const ws = XLSX.utils.aoa_to_sheet(rows)
+                XLSX.utils.book_append_sheet(wb, ws, 'readme demo')
+                let colsWidths = []
+                colsWidths.push({ wch: 3 })
+                rows[0].map(data => {
+                  colsWidths.push({ wch: 3 })
+                })
+                ws['!cols'] = colsWidths
+                XLSX.writeFile(wb, `星盘${idx == 0 ? '黄道' : '宫位'}推运表_` + parseInt(new Date().getTime() / 1000) + '.xlsx')
+              })
+            }
+
+            function onClickXingTable2Pic() {
+              savePicById('xingTableContent' + xingTableTabSelect.value)
+            }
+
+            function onClearXingTableData() {
+              xingTableData = [[], []]
+              xingTableRows.value = [[], []]
+            }
+
+            function onCloseXingTableDialog() {
+              dialogXingTableVisible.value = false
+              onClearXingTableData()
+            }
+
+            function onOpenXingTableDialog() {
+              proxy.$refs['formRef'].validate(async valid => {
+                if (valid) {
+                  let lt = getDateByStr(form.value.now)
+                  currentTuiYunDate = new Date('2000-01-01 01:00:00')
+                  currentTuiYunDate.setFullYear(lt.year)
+                  currentTuiYunDate.setMonth(lt.month - 1)
+                  currentTuiYunDate.setDate(lt.day)
+                  currentTuiYunDate.setHours(lt.hour)
+                  currentTuiYunDate.setMinutes(0)
+                  currentTuiYunDate.setSeconds(0)
+                  dialogXingTableVisible.value = true
+                  loadXingTable()
+                }
+              })
+            }
+            // ******七政四余推运 END
+
+            loadUserData()
+            loadPanHisData()
+
+            // ****GooleMap START******
+            loadScript(
+              'https://maps.googleapis.com/maps/api/js?key=AIzaSyC2k5kJeKpF6Gs4t9-a-wJg53EyQntj2Gk&libraries=places&v=weekly&&region=CN',
+              function () {
+                initGoogleMap(form.value.lat, form.value.lng)
+              }
+            )
+            let googleMapInstance
+            let googleMapMarkers = []
+            let googleMapMarkIconImg = 'https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png'
+            function initGoogleMap(lat, lng) {
+              if (!lat || !lng) return
+              googleMapInstance = null
+              googleMapMarkers = []
+
+              googleMapInstance = new google.maps.Map(document.getElementById('googleMap'), {
+                center: { lat: lat, lng: lng },
+                zoom: 13,
+                minZoom: 2,
+                maxZoom: 16,
+                mapTypeControl: false
+              })
+              google.maps.event.addListener(googleMapInstance, 'click', event => {
+                let position = event.latLng
+                // deleteMarkers()
+                addMarker(position, googleMapInstance)
+                // 修改经纬度输入框的值
+              })
+
+              // Create the search box and link it to the UI element.
+              const input = document.getElementById('pac-input')
+              const searchBox = new google.maps.places.SearchBox(input)
+              googleMapInstance.controls[google.maps.ControlPosition.TOP_LEFT].push(input)
+              // Bias the SearchBox results towards current map's viewport.
+              googleMapInstance.addListener('bounds_changed', () => {
+                searchBox.setBounds(googleMapInstance.getBounds())
+              })
+              // Listen for the event fired when the user selects a prediction and retrieve
+              // more details for that place.
+              searchBox.addListener('places_changed', () => {
+                const places = searchBox.getPlaces()
+                if (places.length == 0) {
+                  return
+                }
+                // For each place, get the icon, name and location.
+                const bounds = new google.maps.LatLngBounds()
+                places.forEach(place => {
+                  if (!place.geometry || !place.geometry.location) {
+                    return
+                  }
+
+                  addMarker(place.geometry.location, googleMapInstance)
+                  if (place.geometry.viewport) {
+                    // Only geocodes have viewport.
+                    bounds.union(place.geometry.viewport)
+                  } else {
+                    bounds.extend(place.geometry.location)
+                  }
+                })
+                googleMapInstance.fitBounds(bounds)
+              })
+            }
+            function reinitGoogeMap(lat, lng) {
+              if (googleMapInstance) googleMapInstance.setCenter({ lat: lat, lng: lng })
+            }
+            function addMarker(position, map) {
+              deleteMarkers()
+              const marker = new google.maps.Marker({
+                position,
+                map
+              })
+              form.value.lat = position.lat()
+              form.value.lng = position.lng()
+              googleMapMarkers.push(marker)
+
+              const xhr = new XMLHttpRequest()
+              xhr.open(
+                'GET',
+                `https://maps.googleapis.com/maps/api/timezone/json?location=${position.lat()}%2C${position.lng()}&timestamp=${parseInt(
+                  new Date().getTime() / 1000
+                )}&key=AIzaSyC2k5kJeKpF6Gs4t9-a-wJg53EyQntj2Gk`
+              )
+              xhr.addEventListener('loadend', () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  try {
+                    let data = JSON.parse(xhr.response)
+                    if (data && data.timeZoneId) {
+                      let index = zoneOptions.value.findIndex(item => {
+                        return data.timeZoneId == item.value
+                      })
+                      if (index == -1) {
+                        zoneOptions.value.push({ value: data.timeZoneId, title: data.timeZoneId })
+                      }
+                      form.value.zone = data.timeZoneId
+                    }
+                  } catch (e) {}
+                }
+              })
+              xhr.send()
+            }
+            function deleteMarkers() {
+              for (let i = 0; i < googleMapMarkers.length; i++) {
+                googleMapMarkers[i].setMap(null)
+              }
+              googleMapMarkers = []
+            }
+            // ****GooleMap END******
+
+            return {
+              zoneOptions,
+              user,
+              form,
+              formRules,
+              qzsyPanData,
+              xingPanData,
+              filtTimeType,
+              autoPlayIntervalTime,
+              isAutoPlay,
+
+              queryParams,
+              total,
+              panHisData,
+              qzsyXings,
+              astroXings,
+
+              taskQueryParams,
+              taskTotal,
+              taskData,
+              exportTaskDataLoading,
+              exportPageSize,
+
+              qzsyTableStyle,
+              qzsyTableStyle2PartHidden,
+              qzsyTableRows,
+              loadMoreQzsyNum,
+              moreQzsyTotal,
+              moreQzsyLoaded,
+
+              xingTableStyle,
+              xingTableRows,
+              xingTableTabSelect,
+
+              dialogPanVisible,
+              dialogQzsyTableVisible,
+              dialogXingTableVisible,
+
+              activeTabPan,
+              paiPanBtnLoading,
+              qzsyTableLoading,
+              xingTableLoading,
+
+              onClickLogout,
+              resetForm,
+              onClickPaiPan,
+              onChangeNowTime,
+              onPlayAutoPan,
+              onPauseAutoPan,
+              onCloseDialogPan,
+              onCheckSignDisplay,
+              onCheckAstroSignDisplay,
+
+              loadPanHisData,
+              onSavePaiHis,
+              onLoadPanHis,
+              onDelPanHis,
+
+              onExportTaskData,
+              loadTaskData,
+              reloadTaskData,
+              onDelTask,
+              addTask,
+
+              handleQzsyTableData2Rows,
+              onLoadMoreQzsyTable,
+              onOpenQzsyTableDialog,
+              onCloseQzsyTableDialog,
+              onClickQzsyTable2Pic,
+              onClickQzsyTable2Excel,
+
+              handleXingTableRows2Rows,
+              onLoadMoreXingTable,
+              onOpenXingTableDialog,
+              onCloseXingTableDialog,
+              onClickXingTable2Pic,
+              onClickXingTable2Excel,
+
+              parseTime,
+
+              ArrowLeftBold,
+              ArrowRightBold,
+              VideoPlay,
+              VideoPause,
+              Refresh
+            }
+          }
+        })
+        app.use(ElementPlus, {
+          locale: ElementPlusLocaleZhCn
+        })
+        app.mount('#app')
+        document.getElementById('app').style.display = 'block'
+      }
+
+      function loadScript(url, callback) {
+        var script = document.createElement('script')
+        if (script.readyState) {
+          script.onreadystatechange = function () {
+            if (script.readyState == 'complete' || script.readyState == 'loaded') {
+              callback()
+            }
+          }
+        } else {
+          script.onload = function () {
+            callback()
+          }
+        }
+        script.src = url
+        document.body.appendChild(script)
+      }
+    </script>
+
+    <script>
+      function getDateByStr(v) {
+        v = v.trim()
+        var year = parseInt(v.substr(0, 4))
+        v = v.substr(4)
+        var month = parseInt(v.substr(0, 2), 10)
+        v = v.substr(2).trim()
+        var day = parseInt(v.substr(0, 2), 10)
+        v = v.substr(2).trim()
+        var hour = parseInt(v.substr(0, 2), 10)
+        v = v.substr(2).trim()
+        var minute = parseInt(v.substr(0, 2), 10)
+        v = v.substr(2).trim()
+        var second = parseInt(v.substr(0, 2), 10)
+        return {
+          year: year,
+          month: month,
+          day: day,
+          hour: hour,
+          minute: minute,
+          second: second
+        }
+      }
+      function objToDateStr(obj) {
+        let date = new Date(`${obj.year}-${obj.month}-${obj.day} ${obj.hour}:${obj.minute}:${obj.second}`)
+        return `${date.getFullYear()}年${
+          date.getMonth() + 1
+        }月${date.getDate()}日${date.getHours()}时${date.getMinutes()}分${date.getSeconds()}秒`
+      }
+      function dateObjToStr(obj) {
+        let date = new Date('2000-01-01 00:00:00')
+        date.setFullYear(obj.year)
+        date.setMonth(obj.month - 1)
+        date.setDate(obj.day)
+        date.setHours(obj.hour)
+        date.setMinutes(obj.minute)
+        date.setSeconds(obj.second)
+        year = date.getFullYear()
+
+        month = date.getMonth() + 1
+        if (month < 10) month = '0' + month
+
+        day = date.getDate()
+        if (day < 10) day = '0' + day
+
+        hour = date.getHours()
+        if (hour < 10) hour = '0' + hour
+
+        minute = date.getMinutes()
+        if (minute < 10) minute = '0' + minute
+
+        second = date.getSeconds()
+        if (second < 10) second = '0' + second
+
+        return year + '' + month + '' + day + '' + hour + '' + minute + '' + second
+      }
+      function ToDegrees(val) {
+        if (typeof val == 'undefined' || val == '') {
+          return ''
+        }
+        val = val + ''
+        var i = val.indexOf('.')
+        var strDu = i < 0 ? val : val.substring(0, i) //获取度
+        var strFen = 0
+        var strMiao = 0
+        if (i > 0) {
+          var strFen = '0' + val.substring(i)
+          strFen = strFen * 60 + ''
+          i = strFen.indexOf('.')
+          if (i > 0) {
+            strMiao = '0' + strFen.substring(i)
+            strFen = strFen.substring(0, i) //获取分
+            strMiao = strMiao * 60 + ''
+            i = strMiao.indexOf('.')
+            strMiao = strMiao.substring(0, i + 4) //取到小数点后面三位
+            strMiao = parseFloat(strMiao).toFixed(2) //精确小数点后面两位
+          }
+        }
+        return strDu + '°' + strFen + '′'
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app" style="display: none">
+      <div class="header" style="display: flex; justify-content: space-between">
+        <div>
+          <el-link type="primary" href="./index.html" style="font-size: 20px">&lt; 返回八字排盘</el-link>
+        </div>
+        <div class="user-info">
+          <div>
+            欢迎，<span class="user-info-api-img"><img src="./images/vip.png" alt="" /></span
+            ><span class="loginname">{{user.account}}</span>
+            <span @click="onClickLogout" style="margin-left: 10px; color: #409eff; cursor: pointer" v-if="user.account">退出登录</span>
+          </div>
+        </div>
+      </div>
+      <h1 style="font-size: 40px; text-align: center; padding: 10px 0">七政四余</h1>
+      <div class="qzsy-form">
+        <el-form :model="form" ref="formRef" label-width="120px" :rules="formRules">
+          <el-form-item label="姓名">
+            <el-input v-model="form.username" placeholder="请输入姓名" size="large" />
+          </el-form-item>
+          <el-form-item label="性别">
+            <el-radio-group v-model="form.sex">
+              <el-radio label="男" size="large">男</el-radio>
+              <el-radio label="女" size="large">女</el-radio>
+            </el-radio-group>
+          </el-form-item>
+
+          <el-form-item label="时间" prop="birth">
+            <el-input v-model="form.birth" placeholder="年月日时分秒日期" size="large" />
+          </el-form-item>
+
+          <el-form-item label="流时间" prop="now" style="margin-bottom: 0">
+            <el-input v-model="form.now" placeholder="流年月日时分秒日期" size="large" />
+          </el-form-item>
+          <p style="margin: 15px 0 10px 125px; color: #909399; font-size: 10px">
+            输入提示：如20020202020202，代表2002年02月02日02点02分02秒
+          </p>
+
+          <el-form-item label="星制" prop="xingZhi">
+            <el-select v-model="form.xingZhi" placeholder="请选择星制" size="large">
+              <el-option label="政余今制" value="0"></el-option>
+              <el-option label="古宿制" value="1"></el-option>
+              <el-option label="校正古宿制" value="2"></el-option>
+              <el-option label="恒星制" value="3"></el-option>
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="七政四余星曜" prop="signDisplay" @change="onCheckSignDisplay">
+            <el-checkbox-group v-model="form.signDisplay">
+              <el-checkbox v-for="xing in qzsyXings" :key="xing" :label="xing">{{ xing }}</el-checkbox>
+            </el-checkbox-group>
+          </el-form-item>
+
+          <el-form-item label="占星星曜" prop="astroSignDisplay" @change="onCheckAstroSignDisplay">
+            <el-checkbox-group v-model="form.astroSignDisplay">
+              <el-checkbox v-for="xing in astroXings" :key="xing" :label="xing">{{ xing }}</el-checkbox>
+            </el-checkbox-group>
+          </el-form-item>
+
+          <el-form-item label="时区" prop="zone">
+            <el-select v-model="form.zone" placeholder="请选择时区" size="large">
+              <el-option v-for="item in zoneOptions" :key="item.value" :label="item.title" :value="item.value"></el-option>
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="经纬度">
+            <el-radio-group v-model="form.locationInputType">
+              <el-radio label="0" size="large">手动输入</el-radio>
+              <el-radio label="1" size="large">地图选点</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="经度" prop="lng">
+            <el-input v-model="form.lng" placeholder="请输入经度" size="large" />
+          </el-form-item>
+          <el-form-item label="纬度" prop="lat" style="margin-bottom: 0">
+            <el-input v-model="form.lat" placeholder="请输入纬度" size="large" />
+          </el-form-item>
+
+          <p style="margin: 15px 0 15px 125px; color: #909399; font-size: 10px">
+            经纬度116°24′ 格式转换为 116.40 换算公式为：【116+24/60=116.4】
+          </p>
+
+          <el-form-item>
+            <el-button type="success" @click="onClickPaiPan" :loading="paiPanBtnLoading">排盘</el-button>
+            <el-button type="primary" @click="onOpenQzsyTableDialog">七政四余推运</el-button>
+            <el-button type="primary" @click="onOpenXingTableDialog">占星推运</el-button>
+            <el-button type="warning" @click="onSavePaiHis">排盘存档</el-button>
+            <el-button @click="resetForm">重置</el-button>
+          </el-form-item>
+        </el-form>
+        <div class="google-map-wrap" :style="form.locationInputType=='1'?'display:block':'display:none'">
+          <input id="pac-input" type="text" placeholder="输入地址" />
+          <div id="googleMap"></div>
+        </div>
+      </div>
+
+      <div style="padding: 0 20px">
+        <h2>排盘历史</h2>
+        <el-table :data="panHisData" stripe style="width: 100%">
+          <el-table-column prop="id" label="序号">
+            <template #default="scope"> {{scope.$index+1}} </template>
+          </el-table-column>
+          <el-table-column prop="username" label="用户名" align="center"></el-table-column>
+          <el-table-column prop="sex" label="性别" align="center"></el-table-column>
+          <el-table-column prop="birth" label="时间" align="center"></el-table-column>
+          <el-table-column prop="now" label="流时间" align="center"></el-table-column>
+          <el-table-column prop="zone" label="时区" align="center"></el-table-column>
+          <el-table-column prop="lng" label="经度" align="center"></el-table-column>
+          <el-table-column prop="lat" label="纬度" align="center"></el-table-column>
+          <el-table-column label="操作" width="280" align="center">
+            <template #default="scope">
+              <el-button type="danger" size="small" @click="onDelPanHis(scope.$index, scope.row)">删除</el-button>
+              <el-button type="primary" size="small" @click="onLoadPanHis(scope.$index, scope.row)">载入</el-button>
+              <el-button type="success" size="small" @click="addTask(scope.row,10)">添加导出任务</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-pagination
+          v-show="total>0"
+          :total="total"
+          v-model:current-page="queryParams.pageNum"
+          v-model:page-size="queryParams.pageSize"
+          @current-change="loadPanHisData"
+        ></el-pagination>
+      </div>
+
+      <div style="padding: 0 20px">
+        <h2>
+          导出任务 <el-button type="success" :icon="Refresh" circle @click="reloadTaskData" :disabled="exportTaskDataLoading"></el-button>
+        </h2>
+        <div style="display: flex; justify-content: space-between; padding: 20px 10px">
+          <div>
+            导出样式：
+            <el-radio-group v-model="qzsyTableStyle">
+              <el-radio :label="1">样式1</el-radio>
+              <el-radio :label="2">样式2</el-radio>
+              <el-radio :label="3">样式3</el-radio>
+            </el-radio-group>
+          </div>
+          <div class="m-2" style="margin-left: 20px">
+            单个Excel小时数：
+            <el-select v-model="exportPageSize" :disabled="exportTaskDataLoading" placeholder="Select">
+              <el-option label="1小时" :value="1"></el-option>
+              <el-option label="3小时" :value="3"></el-option>
+              <el-option label="6小时" :value="6"></el-option>
+              <el-option label="8小时" :value="8"></el-option>
+              <el-option label="12小时" :value="12"></el-option>
+              <el-option label="24小时" :value="24"></el-option>
+              <el-option label="48小时" :value="48"></el-option>
+            </el-select>
+            <span style="margin: 15px 0 15px 12px; color: #909399; font-size: 10px">*浏览器卡顿的话请调小该数值</span>
+          </div>
+        </div>
+
+        <el-table :data="taskData" stripe style="width: 100%">
+          <el-table-column prop="id" label="序号">
+            <template #default="scope"> {{scope.$index+1}} </template>
+          </el-table-column>
+          <el-table-column prop="username" label="用户名" align="center"></el-table-column>
+          <el-table-column prop="sex" label="性别" align="center"></el-table-column>
+          <el-table-column prop="birth" label="时间" align="center"></el-table-column>
+          <el-table-column prop="now" label="流时间" align="center"></el-table-column>
+          <el-table-column prop="zone" label="时区" align="center"></el-table-column>
+          <el-table-column prop="lng" label="经度" align="center"></el-table-column>
+          <el-table-column prop="lat" label="纬度" align="center"></el-table-column>
+          <el-table-column prop="createTime" label="提交时间" width="180">
+            <template #default="scope"> {{parseTime(scope.row.createTime,'{y}-{m}-{d} {h}:{i}:{s}')}} </template>
+          </el-table-column>
+          <el-table-column prop="days" label="导出天数" align="center"></el-table-column>
+          <el-table-column prop="status" label="任务状态">
+            <template #default="scope">
+              <el-tag v-if="scope.row.status == 1" type="info">待执行</el-tag>
+              <el-tag v-if="scope.row.status == 2" type="warning">执行中</el-tag>
+              <el-tag v-if="scope.row.status == 3" type="success">已完成</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="200" align="center">
+            <template #default="scope">
+              <el-button type="danger" size="small" @click="onDelTask(scope.row)">删除</el-button>
+              <el-button
+                type="primary"
+                size="small"
+                :disabled="scope.row.status != 3"
+                :loading="exportTaskDataLoading"
+                @click="onExportTaskData(scope.$index, scope.row)"
+                >导出Excel</el-button
+              >
+              <el-progress
+                v-if="scope.row.exportLoading"
+                :text-inside="true"
+                :stroke-width="15"
+                :percentage="scope.row.exportPercentage"
+                status="success"
+                striped
+                striped-flow
+              >
+              </el-progress>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-pagination
+          v-show="taskTotal>0"
+          :total="taskTotal"
+          v-model:current-page="taskQueryParams.pageNum"
+          v-model:page-size="taskQueryParams.pageSize"
+          @current-change="loadTaskData"
+        ></el-pagination>
+      </div>
+
+      <el-dialog
+        v-model="dialogPanVisible"
+        title="排盘结果"
+        class="pai-pan-dialog"
+        width="90%"
+        :close-on-click-modal="false"
+        top="0"
+        @close="onCloseDialogPan"
+      >
+        <el-tabs :model-value="activeTabPan">
+          <el-tab-pane label="七政四余推运盘" name="qzsy">
+            <div class="infos" v-if="qzsyPanData.headers">
+              <div class="info">
+                <div class="birth-time">{{qzsyPanData.headers.birth}}</div>
+                <div class="cur-city">{{qzsyPanData.headers.city}}</div>
+              </div>
+              <div class="info">
+                <div class="xing-zhi">{{qzsyPanData.headers.xingZhi}}</div>
+                <div class="lat-lon">{{qzsyPanData.headers.location}}</div>
+              </div>
+              <div class="info">
+                <div class="sun-rise">{{qzsyPanData.headers.sun}}</div>
+                <div class="sun-set">{{qzsyPanData.headers.moon}}</div>
+              </div>
+              <div class="info">
+                <div class="now-time">{{qzsyPanData.headers.now}}</div>
+                <div class="now-age">{{qzsyPanData.headers.age}}</div>
+              </div>
+              <div class="info">
+                <div></div>
+                <div class="birth-bazi">{{qzsyPanData.headers.poles}}</div>
+              </div>
+            </div>
+
+            <el-tabs>
+              <el-tab-pane label="本命">
+                <div class="ming ben-ming">
+                  <div class="ming-title">
+                    <div>星</div>
+                    <div>宿</div>
+                    <div>速</div>
+                    <div>宫</div>
+                    <div>殿</div>
+                    <div>坦</div>
+                    <div>庙</div>
+                    <div>旺</div>
+                    <div>乐</div>
+                    <div>喜</div>
+                    <div>管库星</div>
+                    <div>化曜</div>
+                  </div>
+                  <div class="ming-content">
+                    <div class="ming-item" v-for="item in qzsyPanData.benMing" :key="item.value">
+                      <div>{{item.xing}}</div>
+                      <div>{{item.su1}}{{item.su}}{{item.su2}}</div>
+                      <div>{{item.shu}}</div>
+                      <div>{{item.gong1}}{{item.gong}}{{item.gong2}}</div>
+                      <div>{{item.dian}}</div>
+                      <div>{{item.yuan}}</div>
+                      <div>{{item.miao}}</div>
+                      <div>{{item.wang}}</div>
+                      <div>{{item.le}}</div>
+                      <div>{{item.xi}}</div>
+                      <div>{{item.guan}}</div>
+                      <div>{{item.hua}}</div>
+                    </div>
+                  </div>
+                </div>
+              </el-tab-pane>
+              <el-tab-pane label="本煞">
+                <div class="sha ben-sha">
+                  <div class="sha-item" v-for="item in qzsyPanData.benSha" :key="item.value">
+                    <div>{{item[0]}}</div>
+                    <div>{{item[1]}}</div>
+                    <div>{{item[2]}}</div>
+                  </div>
+                </div>
+              </el-tab-pane>
+              <el-tab-pane label="流年">
+                <div class="ming liu-nian">
+                  <div class="ming-title">
+                    <div>星</div>
+                    <div>宿</div>
+                    <div>速</div>
+                    <div>宫</div>
+                    <div>殿</div>
+                    <div>坦</div>
+                    <div>庙</div>
+                    <div>旺</div>
+                    <div>乐</div>
+                    <div>喜</div>
+                    <div>管库星</div>
+                    <div>化曜</div>
+                  </div>
+                  <div class="ming-content">
+                    <div class="ming-item" v-for="item in qzsyPanData.liuNian" :key="item.value">
+                      <div>{{item.xing}}</div>
+                      <div>{{item.su1}}{{item.su}}{{item.su2}}</div>
+                      <div>{{item.shu}}</div>
+                      <div>{{item.gong1}}{{item.gong}}{{item.gong2}}</div>
+                      <div>{{item.dian}}</div>
+                      <div>{{item.yuan}}</div>
+                      <div>{{item.miao}}</div>
+                      <div>{{item.wang}}</div>
+                      <div>{{item.le}}</div>
+                      <div>{{item.xi}}</div>
+                      <div>{{item.guan}}</div>
+                      <div>{{item.hua}}</div>
+                    </div>
+                  </div>
+                </div>
+              </el-tab-pane>
+              <el-tab-pane label="流煞">
+                <div class="sha ben-sha">
+                  <div class="sha-item" v-for="item in qzsyPanData.liuSha" :key="item.value">
+                    <div>{{item[0]}}</div>
+                    <div>{{item[1]}}</div>
+                    <div>{{item[2]}}</div>
+                  </div>
+                </div>
+              </el-tab-pane>
+            </el-tabs>
+          </el-tab-pane>
+          <el-tab-pane label="星盘" name="xing">
+            <div class="infos" v-if="xingPanData.headers">
+              <div class="info">
+                <div class="birth-time">{{xingPanData.headers.birth}}</div>
+                <div class="cur-city">{{xingPanData.headers.city}}</div>
+              </div>
+              <div class="info">
+                <div class="xing-zhi"></div>
+                <div class="lat-lon">{{xingPanData.headers.location}}</div>
+              </div>
+              <div class="info">
+                <div class="sun-rise">{{xingPanData.headers.sun}}</div>
+                <div class="sun-set">{{xingPanData.headers.moon}}</div>
+              </div>
+              <div class="info">
+                <div class="now-time">{{xingPanData.headers.now}}</div>
+                <div class="now-age">{{xingPanData.headers.age}}</div>
+              </div>
+              <div class="info">
+                <div></div>
+                <div class="birth-bazi">{{xingPanData.headers.poles}}</div>
+              </div>
+            </div>
+
+            <el-tabs>
+              <el-tab-pane label="本命黄道">
+                <div class="ming">
+                  <div class="ming-title">
+                    <div>星体</div>
+                    <div>黄经度数</div>
+                    <div>速</div>
+                  </div>
+                  <div class="ming-content">
+                    <div class="ming-item" v-for="item in xingPanData.benMingHd" :key="item.value">
+                      <div style="flex: 1">{{item.xing}}</div>
+                      <div style="flex: 3">{{item.su1}}{{item.su}}{{item.su2}}</div>
+                      <div style="flex: 1">{{item.shu}}</div>
+                    </div>
+                  </div>
+                </div>
+              </el-tab-pane>
+              <el-tab-pane label="本命宫位">
+                <div class="gong-wei">
+                  <div class="gong-title">
+                    <div>宫位</div>
+                    <div>黄经度数</div>
+                  </div>
+                  <div class="gong-content">
+                    <div class="ming-item" v-for="item in xingPanData.benMingGw" :key="item.value">
+                      <div style="flex: 1">{{item.xing}}</div>
+                      <div style="flex: 1">{{item.su1}}{{item.su}}{{item.su2}}</div>
+                    </div>
+                  </div>
+                </div>
+              </el-tab-pane>
+              <el-tab-pane label="本命星盘">
+                <div class="xing ben-xing">
+                  <div class="xing-item" v-for="item in xingPanData.benMingXingRows">
+                    <div v-for="i in item">{{i}}</div>
+                  </div>
+                </div>
+              </el-tab-pane>
+              <el-tab-pane label="流年黄道">
+                <div class="ming">
+                  <div class="ming-title">
+                    <div>星体</div>
+                    <div>黄经度数</div>
+                    <div>速</div>
+                  </div>
+                  <div class="ming-content">
+                    <div class="ming-item" v-for="item in xingPanData.liuNianHd" :key="item.value">
+                      <div style="flex: 1">{{item.xing}}</div>
+                      <div style="flex: 3">{{item.su1}}{{item.su}}{{item.su2}}</div>
+                      <div style="flex: 1">{{item.shu}}</div>
+                    </div>
+                  </div>
+                </div>
+              </el-tab-pane>
+
+              <el-tab-pane label="流年宫位">
+                <div class="gong-wei">
+                  <div class="gong-title">
+                    <div>宫位</div>
+                    <div>黄经度数</div>
+                  </div>
+                  <div class="gong-content">
+                    <div class="ming-item" v-for="item in xingPanData.liuNianGw" :key="item.value">
+                      <div style="flex: 1">{{item.xing}}</div>
+                      <div style="flex: 1">{{item.su1}}{{item.su}}{{item.su2}}</div>
+                    </div>
+                  </div>
+                </div>
+              </el-tab-pane>
+              <el-tab-pane label="流年星盘">
+                <div class="xing ben-xing">
+                  <div class="xing-item" v-for="item in xingPanData.liuNianXingRows">
+                    <div v-for="i in item">{{i}}</div>
+                  </div>
+                </div></el-tab-pane
+              >
+              <el-tab-pane label="流年综合">
+                <div style="display: flex">
+                  <div class="ming liu-nian" style="flex: 1">
+                    <div class="ming-title">
+                      <div>星体</div>
+                      <div>黄经度数</div>
+                      <div>速</div>
+                    </div>
+                    <div class="ming-content">
+                      <div class="ming-item" v-for="item in xingPanData.liuNianHd" :key="item.value">
+                        <div style="flex: 1">{{item.xing}}</div>
+                        <div style="flex: 3">{{item.su1}}{{item.su}}{{item.su2}}</div>
+                        <div style="flex: 1">{{item.shu}}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="gong-wei liu-nian" style="flex: 1; margin-left: 20px">
+                    <div class="gong-title">
+                      <div>宫位</div>
+                      <div>黄经度数</div>
+                    </div>
+                    <div class="gong-content">
+                      <div class="ming-item" v-for="item in xingPanData.liuNianGw" :key="item.value">
+                        <div style="flex: 1">{{item.xing}}</div>
+                        <div style="flex: 1">{{item.su1}}{{item.su}}{{item.su2}}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="xing liu-xing" style="margin-top: 20px">
+                  <div class="xing ben-xing">
+                    <div class="xing-item" v-for="item in xingPanData.liuNianXingRows">
+                      <div v-for="i in item">{{i}}</div>
+                    </div>
+                  </div>
+                </div>
+              </el-tab-pane>
+            </el-tabs>
+          </el-tab-pane>
+        </el-tabs>
+        <div class="pan-btns" style="margin: 10px 0">
+          <!-- <div class="pan-btns" style="display: flex; justify-content: center; margin: 10px 0"> -->
+          <el-button type="primary" :icon="ArrowLeftBold" @click="onChangeNowTime(false)" :loading="isAutoPlay"></el-button>
+          <el-select v-model="filtTimeType" placeholder="Select">
+            <el-option label="1年" value="year"></el-option>
+            <el-option label="1月" value="month"></el-option>
+            <el-option label="1日" value="day"></el-option>
+            <el-option label="1时" value="hour"></el-option>
+            <el-option label="1分" value="minute"></el-option>
+          </el-select>
+          <el-button type="primary" :icon="ArrowRightBold" @click="onChangeNowTime(true)" :loading="isAutoPlay"></el-button>
+          <span style="margin: 0 10px">自动播放间隔</span>
+          <el-select v-model="autoPlayIntervalTime" :disabled="isAutoPlay" placeholder="Select">
+            <el-option label="5s" :value="5"></el-option>
+            <el-option label="30s" :value="30"></el-option>
+            <el-option label="1分钟" :value="60"></el-option>
+            <el-option label="2分钟" :value="120"></el-option>
+            <el-option label="5分钟" :value="300"></el-option>
+          </el-select>
+          <el-button type="primary" v-if="!isAutoPlay" :icon="VideoPlay" @click="onPlayAutoPan" style="margin-left: 10px">播放</el-button>
+          <el-button type="primary" v-if="isAutoPlay" :icon="VideoPause" @click="onPauseAutoPan" style="margin-left: 10px">暂停</el-button>
+          <el-button type="primary" loading v-if="isAutoPlay">数据自动播放中</el-button>
+          <el-button type="danger" @click="onCloseDialogPan">关闭</el-button>
+        </div>
+      </el-dialog>
+
+      <el-dialog
+        v-model="dialogQzsyTableVisible"
+        class="tui-yun-dialog"
+        title="推运表【七政四余】"
+        width="100%"
+        top="0"
+        :close-on-click-modal="false"
+        @close="onCloseQzsyTableDialog"
+        :show-close="false"
+      >
+        <el-radio-group v-model="qzsyTableStyle" @change="handleQzsyTableData2Rows">
+          <el-radio-button :label="1">样式1</el-radio-button>
+          <el-radio-button :label="2">样式2</el-radio-button>
+          <el-radio-button :label="3">样式3</el-radio-button>
+        </el-radio-group>
+
+        <div style="margin: 10px 0">
+          <el-radio-group v-if="qzsyTableStyle==3" v-model="qzsyTableStyle2PartHidden" @change="handleQzsyTableData2Rows">
+            <el-radio :label="false">显示静态数据</el-radio>
+            <el-radio :label="true">隐藏静态数据</el-radio>
+          </el-radio-group>
+        </div>
+
+        <div :class="'yun-table style'+qzsyTableStyle">
+          <div id="qzsyTableContent">
+            <el-empty v-if="!qzsyTableRows || qzsyTableRows.length == 0" description="暂无数据"></el-empty>
+            <div class="yun-table-content 1">
+              <div class="hour-i-line" v-for="row in qzsyTableRows">
+                <div v-for="r in row" :style="r.style">{{r.v}}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin: 10px 0">
+          <el-button type="primary" @click="onLoadMoreQzsyTable(6)" :loading="qzsyTableLoading">加载6小时</el-button>
+          <el-button type="primary" @click="onLoadMoreQzsyTable(12)" :loading="qzsyTableLoading">加载12小时</el-button>
+          <el-button type="primary" @click="onLoadMoreQzsyTable(24)" :loading="qzsyTableLoading">加载24小时</el-button>
+
+          <el-button type="primary" @click="onLoadMoreQzsyTable(loadMoreQzsyNum)" :loading="qzsyTableLoading" style="margin-left: 20px"
+            >加载{{loadMoreQzsyNum}}小时</el-button
+          >
+          <el-input-number v-model="loadMoreQzsyNum" :step="1" :min="1" :max="100" step-strictly></el-input-number>
+          <span type="primary" style="float: right" loading v-if="qzsyTableLoading">加载进度：{{moreQzsyLoaded}}/{{moreQzsyTotal}}</span>
+        </div>
+        <div>
+          <el-button type="success" :loading="qzsyTableLoading" @click="onClickQzsyTable2Pic">导出图片</el-button>
+          <el-button type="success" :loading="qzsyTableLoading" @click="onClickQzsyTable2Excel">导出Excel</el-button>
+          <!-- <el-button type="danger" :loading="qzsyTableLoading" @click="onClearQzsyTableData">清空</el-button> -->
+          <el-button type="danger" :loading="qzsyTableLoading" @click="onCloseQzsyTableDialog">关闭</el-button>
+        </div>
+      </el-dialog>
+
+      <el-dialog
+        v-model="dialogXingTableVisible"
+        class="tui-yun-dialog"
+        title="推运表【星盘】"
+        width="100%"
+        top="0"
+        :close-on-click-modal="false"
+        @close="onCloseXingTableDialog"
+      >
+        <div class="yun-table">
+          <el-tabs v-model="xingTableTabSelect">
+            <el-tab-pane :label="idx==0?'黄道':'宫位'" :name="idx" v-for="(xingTableRow,idx) in xingTableRows">
+              <el-empty v-if="!xingTableRow || xingTableRow.length == 0" description="暂无数据"></el-empty>
+              <div :id="'xingTableContent'+idx">
+                <div class="yun-table-content">
+                  <div class="hour-i-line" v-for="row in xingTableRow">
+                    <div v-for="r in row" :style="r.style">{{r.v}}</div>
+                  </div>
+                </div>
+              </div>
+            </el-tab-pane>
+          </el-tabs>
+        </div>
+
+        <div style="margin: 10px 0">
+          <el-button type="primary" @click="onLoadMoreXingTable(6)" :loading="xingTableLoading">加载16小时</el-button>
+          <el-button type="primary" @click="onLoadMoreXingTable(12)" :loading="xingTableLoading">加载12小时</el-button>
+          <el-button type="primary" @click="onLoadMoreXingTable(24)" :loading="xingTableLoading">加载24小时</el-button>
+          <el-button type="primary" @click="onLoadMoreXingTable(48)" :loading="xingTableLoading">加载48小时</el-button>
+        </div>
+        <div>
+          <el-button type="success" :loading="xingTableLoading" @click="onClickXingTable2Pic">导出图片</el-button>
+          <el-button type="success" :loading="xingTableLoading" @click="onClickXingTable2Excel">导出Excel</el-button>
+          <!-- <el-button type="danger" :loading="qzsyTableLoading" @click="onClearQzsyTableData">清空</el-button> -->
+          <el-button type="danger" :loading="xingTableLoading" @click="onCloseXingTableDialog">关闭</el-button>
+        </div>
+      </el-dialog>
+
+      <!-- <el-dialog
+        v-model="dialogExportTaskDownloadVisible"
+        title="导出列表"
+        width="50vw"
+        :close-on-click-modal="false"
+        @close="dialogExportTasksVisible = false"
+      >
+        <div v-for=" (d,index) in taskDownloads" :key="d"></div>
+      </el-dialog> -->
+    </div>
+  </body>
+</html>

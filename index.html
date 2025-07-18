@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>无极天下</title>
+    <script src="./js/jquery-3.5.1.min.js"></script>
+    <link rel="stylesheet" href="./layui/css/layui.css" />
+    <script src="./layui/layui.js"></script>
+    <script src="./js/lunar.js"></script>
+    <script src='./js/paipan.js?v="+Math.random()+"'></script>
+    <script src='./js/paipan.gx.js?v="+Math.random()+"'></script>
+    <script src="./js/utils.js"></script>
+    <script src="./js/echarts.min.js"></script>
+    <script src="./js/wuxing.js"></script>
+    <script src="./js/timezone.js"></script>
+    <script src="./js/shensha.js"></script>
+
+    <link rel="stylesheet" href="./css/index.css" />
+
+    <script src="./js/index.js"></script>
+
+    <script>
+      // =======谷歌地图START==========
+      let googleMapInstance
+      let googleMapMarkers = []
+      const googleMapMarkIconImg = 'https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png'
+
+      // 初始化Google地图
+      function initGoogleMap(id = 'googleMap', lat, lng) {
+        if (!lat) lat = 31.230416
+        if (!lng) lng = 121.473701
+        googleMapInstance = null
+        googleMapMarkers = []
+        console.log('initGoogleMap', lat, lng)
+
+        googleMapInstance = new google.maps.Map(document.getElementById(id), {
+          center: { lat: lat, lng: lng },
+          zoom: 13,
+          minZoom: 2,
+          maxZoom: 16,
+          mapTypeControl: false
+        })
+        google.maps.event.addListener(googleMapInstance, 'click', event => {
+          let position = event.latLng
+          // deleteMarkers()
+          addMarker(position, googleMapInstance)
+          // 修改经纬度输入框的值
+          $('.lat-input').val(position.lat())
+          $('.lng-input').val(position.lng())
+        })
+
+        // Create the search box and link it to the UI element.
+        const input = document.getElementById('pac-input')
+        const searchBox = new google.maps.places.SearchBox(input)
+        googleMapInstance.controls[google.maps.ControlPosition.TOP_LEFT].push(input)
+        // Bias the SearchBox results towards current map's viewport.
+        googleMapInstance.addListener('bounds_changed', () => {
+          searchBox.setBounds(googleMapInstance.getBounds())
+        })
+        // Listen for the event fired when the user selects a prediction and retrieve
+        // more details for that place.
+        searchBox.addListener('places_changed', () => {
+          const places = searchBox.getPlaces()
+          if (places.length == 0) {
+            return
+          }
+          // For each place, get the icon, name and location.
+          const bounds = new google.maps.LatLngBounds()
+          places.forEach(place => {
+            if (!place.geometry || !place.geometry.location) {
+              console.log('Returned place contains no geometry')
+              return
+            }
+
+            addMarker(place.geometry.location, googleMapInstance)
+            if (place.geometry.viewport) {
+              // Only geocodes have viewport.
+              bounds.union(place.geometry.viewport)
+            } else {
+              bounds.extend(place.geometry.location)
+            }
+          })
+          googleMapInstance.fitBounds(bounds)
+        })
+      }
+
+      function reinitGoogeMap(lat, lng) {
+        if (googleMapInstance) googleMapInstance.setCenter({ lat: lat, lng: lng })
+      }
+
+      function addMarker(position, map) {
+        console.log('position', position.lat(), position.lng())
+        deleteMarkers()
+        const marker = new google.maps.Marker({
+          position,
+          map
+        })
+        googleMapMarkers.push(marker)
+      }
+
+      // Deletes all markers in the array by removing references to them.
+      function deleteMarkers() {
+        // setgoogleMapInstanceOnAll(null)
+        for (let i = 0; i < googleMapMarkers.length; i++) {
+          googleMapMarkers[i].setMap(null)
+        }
+        googleMapMarkers = []
+      }
+    </script>
+
+    <script type="text/html" id="barDemo">
+      <a class="layui-btn layui-btn-xs" lay-event="load">载入排盘</a>
+      <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+    </script>
+    <script>
+      ;(g => {
+        var h,
+          a,
+          k,
+          p = 'The Google Maps JavaScript API',
+          c = 'google',
+          l = 'importLibrary',
+          q = '__ib__',
+          m = document,
+          b = window
+        b = b[c] || (b[c] = {})
+        var d = b.maps || (b.maps = {}),
+          r = new Set(),
+          e = new URLSearchParams(),
+          u = () =>
+            h ||
+            (h = new Promise(async (f, n) => {
+              await (a = m.createElement('script'))
+              e.set('libraries', [...r] + '')
+              for (k in g)
+                e.set(
+                  k.replace(/[A-Z]/g, t => '_' + t[0].toLowerCase()),
+                  g[k]
+                )
+              e.set('callback', c + '.maps.' + q)
+              a.src = `https://maps.${c}apis.com/maps/api/js?` + e
+              d[q] = f
+              a.onerror = () => (h = n(Error(p + ' could not load.')))
+              a.nonce = m.querySelector('script[nonce]')?.nonce || ''
+              m.head.append(a)
+            }))
+        d[l] ? console.warn(p + ' only loads once. Ignoring:', g) : (d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n)))
+      })({
+        key: 'AIzaSyC2k5kJeKpF6Gs4t9-a-wJg53EyQntj2Gk',
+        v: 'weekly'
+        // Use the 'v' parameter to indicate the version to use (weekly, beta, alpha, etc.).
+        // Add other bootstrap parameters as needed, using camel case.
+      })
+    </script>
+  </head>
+  <body>
+    <div class="header">
+      <div class="menus">
+        <div class="real-sun-time">
+          <div>
+            <span>当前真太阳时：</span> <b class="real-sun-time-val">-</b>
+            <button class="layui-btn layui-btn-xs" onclick="openRealSunTimeConfigEdit()">配置</button>
+          </div>
+        </div>
+      </div>
+      <div class="user-info">
+        <div>
+          欢迎，<span class="user-info-api-img"></span><span class="loginname">请登录...</span>
+          <a href="javascript:;" onclick="logout()">退出登录</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 真太阳时配置 -->
+    <div class="modal-real-sum-time-config" style="display: none">
+      <div>
+        <form class="layui-form" action="" lay-filter="form-user-info-form">
+          <!-- <div class="layui-form-item">
+            <label class="layui-form-label">时区：</label>
+            <div class="layui-input-block">
+              <select name="timeZoneIndex" lay-verify="required" class="timeZoneSelect" lay-search lay-filter="timeZoneSelect"></select>
+            </div>
+          </div> -->
+          <div class="layui-form-item">
+            <label class="layui-form-label">经纬度：</label>
+            <div class="layui-input-block">
+              <input type="radio" name="latLngType" value="0" title="手动输入" checked lay-filter="latLngTypeSwitch" />
+              <input type="radio" name="latLngType" value="1" title="地图选点" lay-filter="latLngTypeSwitch" />
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">经度：</label>
+            <div class="layui-input-block">
+              <input type="number" name="lng" lay-verify="required" class="layui-input lng-input" step="0.000001" lay-filter="lngInput" />
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">纬度：</label>
+            <div class="layui-input-block">
+              <input type="number" name="lat" lay-verify="required" class="layui-input lat-input" step="0.000001" lay-filter="latInput" />
+            </div>
+          </div>
+          <div class="google-map-wrap" style="width: 100%; height: 500px">
+            <input id="pac-input" type="text" placeholder="输入地址" />
+            <div id="googleMap"></div>
+          </div>
+          <div class="layui-form-item">
+            <div class="layui-input-block">
+              <button class="layui-btn" lay-submit lay-filter="formUserInfoConfig">保存配置</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- <div class="modal-google-map"> -->
+
+    <!-- </div> -->
+
+    <h1 style="font-size: 40px; text-align: center; padding: 10px 0">无极天下</h1>
+
+    <div class="content">
+      <div class="box manual 0">
+        <div class="box-content">
+          <div class="top">
+            <div class="date">-</div>
+            <div class="timeZone">-</div>
+          </div>
+          <div class="time-clock">-</div>
+
+          <div class="nongli">-</div>
+          <div class="jwdu">-</div>
+          <div class="taiyang">
+            <div class="ping">-</div>
+            <div class="zhen" style="margin-left: 20px">-</div>
+          </div>
+          <div class="bottom">
+            <div class="username">-</div>
+            <div class="z sex">
+              <div class="z-title">性别</div>
+              <div class="z-value sexVal">-</div>
+            </div>
+            <div class="z nian">
+              <div class="z-title">年柱</div>
+              <div class="z-value nianzhu">-</div>
+            </div>
+            <div class="z">
+              <div class="z-title">月柱</div>
+              <div class="z-value yuezhu">-</div>
+            </div>
+            <div class="z">
+              <div class="z-title">日柱</div>
+              <div class="z-value rizhu">-</div>
+            </div>
+            <div class="z">
+              <div class="z-title">时柱</div>
+              <div class="z-value shizhu">-</div>
+            </div>
+            <div class="z">
+              <div class="z-title">分柱</div>
+              <div class="z-value fenzhu">-</div>
+            </div>
+            <div class="z miaozhu-z">
+              <div class="z-title">秒柱</div>
+              <div class="z-value miaozhu">-</div>
+            </div>
+            <div class="z split"></div>
+            <div class="z">
+              <div class="z-title">大运</div>
+              <div class="z-value dayun">-</div>
+            </div>
+            <div class="z">
+              <div class="z-title">流年</div>
+              <div class="z-value liunian">-</div>
+            </div>
+            <div class="z">
+              <div class="z-title">流月</div>
+              <div class="z-value liuyue">-</div>
+            </div>
+            <div class="z">
+              <div class="z-title">流日</div>
+              <div class="z-value liuri">-</div>
+            </div>
+            <div class="z">
+              <div class="z-title">流时</div>
+              <div class="z-value liushi">-</div>
+            </div>
+            <div class="z">
+              <div class="z-title">流分</div>
+              <div class="z-value liufen">-</div>
+            </div>
+            <div class="z">
+              <div class="z-title">流秒</div>
+              <div class="z-value liumiao">-</div>
+            </div>
+          </div>
+
+          <div class="zhousui"></div>
+          <div class="huanyun"></div>
+          <div class="yunchen"></div>
+          <div class="shishen"></div>
+        </div>
+        <div class="edit-btns">
+          <button type="button" class="layui-btn edit-btn" onclick="onInfoEditManual()">手动盘排盘</button>
+          <button type="button" class="layui-btn layui-btn-normal edit-btn" onclick="onOpenZiweiReverse()">反推出生时辰</button>
+          <button type="button" class="layui-btn layui-btn-warm edit-btn" onclick="onSaveManualPanHis()">保存排盘</button>
+
+          <div style="display: inline-block; margin-left: 10px" class="vip-buttons">
+            <button type="button" class="layui-btn edit-btn vip" onclick="onOpenVipTips()">
+              紫薇运势<img class="vip-img" src="./images/vip.png" />
+            </button>
+            <button type="button" class="layui-btn edit-btn vip" onclick="onOpenVipTips()">
+              刑冲关系<img class="vip-img" src="./images/vip.png" />
+            </button>
+            <button type="button" class="layui-btn edit-btn vip" onclick="onOpenVipTips()">
+              神煞<img class="vip-img" src="./images/vip.png" />
+            </button>
+            <button type="button" class="layui-btn edit-btn vip" onclick="onOpenVipTips()">
+              奇门遁甲<img class="vip-img" src="./images/vip.png" />
+            </button>
+            <button type="button" class="layui-btn edit-btn vip" onclick="onOpenVipTips()">
+              大六壬<img class="vip-img" src="./images/vip.png" />
+            </button>
+            <button type="button" class="layui-btn edit-btn vip" onclick="onOpenVipTips()">
+              七政四余<img class="vip-img" src="./images/vip.png" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 刑冲关系 -->
+    <div class="modal-xing-chong" style="display: none">
+      <div>
+        <form class="layui-form" action="" lay-filter="form-xing-chong">
+          <div class="layui-form-item">
+            <label class="layui-form-label" style="width: 120px; font-weight: bold">流时间（公历）：</label>
+
+            <div style="display: flex">
+              <!-- <div style="margin-right: 10px">流年</div>
+              <div class="layui-input-inline" style="width: 55px">
+                <input type="text" name="yearLTime" lay-verify="required|number" maxlength="4" class="layui-input" />
+              </div>
+              <div style="margin-right: 10px">流月</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input type="text" name="monthLTime" lay-verify="required|number" maxlength="2" class="layui-input" />
+              </div>
+              <div style="margin-right: 10px">流日</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input type="text" name="dayLTime" lay-verify="required|number" maxlength="2" class="layui-input" />
+              </div>
+              <div style="margin-right: 10px">流时</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input type="text" name="hourLTime" lay-verify="required|number" maxlength="2" class="layui-input" />
+              </div>
+              <div style="margin-right: 10px">流分</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input type="text" name="minLTime" lay-verify="required|number" maxlength="2" class="layui-input" />
+              </div>
+              <div style="margin-right: 10px">流秒</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input type="text" name="secondLTime" lay-verify="required|number" maxlength="2" class="layui-input" />
+              </div> -->
+              <div class="">
+                <input
+                  type="text"
+                  name="liuTimeStr"
+                  lay-verify="birthdayDate"
+                  class="layui-input"
+                  oninput="onDateTimeStrInput('#liuTimeStr2')"
+                  placeholder="流年月日时分秒日期"
+                  id="liuTimeStr2"
+                />
+                <div class="birthday-tips">流年月日时日期（公历）。如19890123040500，代表流年1989流月01流日23流时04流分05流秒00</div>
+              </div>
+              <button class="layui-btn layui-btn-danger" lay-submit lay-filter="formXingChong" style="margin-left: 10px">确定</button>
+              <button type="button" class="layui-btn" onclick="onSaveManualPanHis()">保存排盘</button>
+
+              <div style="margin: 10px 0 0 20px">流日期：<span class="liu-preview"></span></div>
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label" style="width: 120px; font-weight: bold">是否显示：</label>
+            <input type="checkbox" name="showFenZhu" title="分柱" lay-filter="isShowZhuLiu" lay-skin="primary" />
+            <input type="checkbox" name="showMiaoZhu" title="秒柱" lay-filter="isShowZhuLiu" lay-skin="primary" />
+            <!-- <input type="checkbox" name="showLiuShi" title="流时" lay-filter="isShowZhuLiu" lay-skin="primary" /> -->
+            <input type="checkbox" name="showLiuFen" title="流分" lay-filter="isShowZhuLiu" lay-skin="primary" />
+            <input type="checkbox" name="showLiuMiao" title="流秒" lay-filter="isShowZhuLiu" lay-skin="primary" />
+          </div>
+        </form>
+      </div>
+      <div class="xc-0-s"></div>
+      <div class="xc-ganzhi-list">
+        <div class="ganzhi-titles"></div>
+        <div class="shen-0-s"></div>
+        <div class="zi-0-s"></div>
+        <div class="zi-1-s"></div>
+        <div class="shen-1-s"></div>
+      </div>
+      <div class="xc-1-s"></div>
+    </div>
+
+    <!-- 神煞 -->
+    <div class="modal-shen-sha" style="display: none">
+      <div>
+        <form class="layui-form" action="" lay-filter="form-shen-sha">
+          <div class="layui-form-item">
+            <label class="layui-form-label" style="width: 120px; font-weight: bold">流时间（公历）：</label>
+
+            <div style="display: flex">
+              <!-- <div style="margin-right: 10px">流年</div>
+              <div class="layui-input-inline" style="width: 55px">
+                <input type="text" name="yearLTime" lay-verify="required|number" maxlength="4" class="layui-input" />
+              </div>
+              <div style="margin-right: 10px">流月</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input type="text" name="monthLTime" lay-verify="required|number" maxlength="2" class="layui-input" />
+              </div>
+              <div style="margin-right: 10px">流日</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input type="text" name="dayLTime" lay-verify="required|number" maxlength="2" class="layui-input" />
+              </div>
+              <div style="margin-right: 10px">流时</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input type="text" name="hourLTime" lay-verify="required|number" maxlength="2" class="layui-input" />
+              </div>
+              <div style="margin-right: 10px">流分</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input type="text" name="minLTime" lay-verify="required|number" maxlength="2" class="layui-input" />
+              </div>
+              <div style="margin-right: 10px">流秒</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input type="text" name="secondLTime" lay-verify="required|number" maxlength="2" class="layui-input" />
+              </div> -->
+              <div class="">
+                <input
+                  type="text"
+                  name="liuTimeStr"
+                  lay-verify="birthdayDate"
+                  class="layui-input"
+                  oninput="onDateTimeStrInput('#liuTimeStr3')"
+                  placeholder="流年月日时分秒日期"
+                  id="liuTimeStr3"
+                />
+                <div class="birthday-tips">流年月日时日期（公历）。如19890123040500，代表流年1989流月01流日23流时04流分05流秒00</div>
+              </div>
+              <button class="layui-btn layui-btn-danger" lay-submit lay-filter="formShenSha" style="margin-left: 10px">确定</button>
+              <button type="button" class="layui-btn" onclick="onSaveManualPanHis()">保存排盘</button>
+              <div style="margin: 10px 0 0 20px">流日期：<span class="liu-preview"></span></div>
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <label class="layui-form-label" style="width: 120px; font-weight: bold">是否显示：</label>
+            <input type="checkbox" name="showFenZhu" title="分柱" lay-filter="shenShaShowZhuLiu" lay-skin="primary" />
+            <input type="checkbox" name="showMiaoZhu" title="秒柱" lay-filter="shenShaShowZhuLiu" lay-skin="primary" />
+            <!-- <input type="checkbox" name="showLiuShi" title="流时" lay-filter="shenShaShowZhuLiu" lay-skin="primary" /> -->
+            <input type="checkbox" name="showLiuFen" title="流分" lay-filter="shenShaShowZhuLiu" lay-skin="primary" />
+            <input type="checkbox" name="showLiuMiao" title="流秒" lay-filter="shenShaShowZhuLiu" lay-skin="primary" />
+          </div>
+        </form>
+      </div>
+      <div class="ss-ganzhi-list">
+        <div class="ganzhi-titles"></div>
+        <div class="zi-0-s"></div>
+        <div class="zi-1-s"></div>
+      </div>
+      <div class="shen-sha-list"></div>
+    </div>
+
+    <!-- 紫薇运势 -->
+    <div class="ziwei-charts" style="display: none">
+      <div class="ziwei-chart">
+        <div class="ziwei-title">一生运势</div>
+        <div class="chart-tips ziweiChartTips1">运势图加载中</div>
+        <div id="ziweiChart1" style="width: 95vw; height: 400px"></div>
+        <div class="ziwei-table ziweiTable1"></div>
+      </div>
+      <div class="ziwei-chart" style="display: block">
+        <div class="ziwei-title">十年运势</div>
+        <div class="chart-tips ziweiChartTips2">运势图加载中</div>
+        <div id="ziweiChart2" style="width: 95vw; height: 400px"></div>
+        <div class="ziwei-table ziweiTable2"></div>
+      </div>
+      <div class="ziwei-chart" style="display: block">
+        <div class="ziwei-title">一年运势</div>
+        <div class="chart-tips ziweiChartTips3">运势图加载中</div>
+        <div id="ziweiChart3" style="width: 95vw; height: 400px"></div>
+        <div class="ziwei-table ziweiTable3"></div>
+      </div>
+      <div class="ziwei-chart" style="display: block">
+        <div class="ziwei-title">一周运势</div>
+        <div class="chart-tips ziweiChartTips4">运势图加载中</div>
+        <div id="ziweiChart4" style="width: 95vw; height: 400px"></div>
+        <div class="ziwei-table ziweiTable4"></div>
+      </div>
+    </div>
+
+    <!-- 紫薇运势反推 -->
+    <div class="ziwei-reverse-charts" style="display: none">
+      <div class="ziwei-date" style="position: fixed; font-size: 25px; font-weight: bold; padding: 10px; background-color: aliceblue"></div>
+      <div class="charts-content"></div>
+    </div>
+
+    <!-- 五行运势 -->
+    <div class="wuxing-charts" style="display: block">
+      <div class="config-btn">
+        <form class="layui-form" action="" lay-filter="form-wuxing-charts">
+          <div class="layui-input-inline">
+            <select name="wuxingSection" lay-verify="required" class="wuxing-select" lay-search lay-filter="wuxingSectionSelect">
+              <option value="7">7天</option>
+              <option value="30">30天</option>
+              <option value="60">60天</option>
+              <option value="180">180天</option>
+            </select>
+          </div>
+          <div class="layui-input-inline">
+            <input type="text" name="wuxingTimeRange" lay-verify="required" class="layui-input" id="wuxingTimeRange" />
+          </div>
+        </form>
+        <button type="button" style="margin-left: 20px" class="layui-btn" onclick="onOpenWuxingParamConfig()">参数配置</button>
+      </div>
+
+      <div class="ziwei-chart">
+        <div class="ziwei-title">五行运势</div>
+        <div id="wuxingChart1" style="width: 95vw; height: 400px"></div>
+        <div class="ziwei-table wuxingTable1"></div>
+      </div>
+    </div>
+
+    <!-- 五行配置 -->
+    <div class="wuxing-config" style="display: none">
+      <div class="modal-content">
+        <form class="layui-form" action="" lay-filter="form-wuxing-config">
+          <div>
+            <b>计算方法：</b
+            >核心为计分法。运用阴阳五行相生相克原理，先计算日元强弱值，然后根据日元强弱计算出大运流年流月运势值，结合半三合，全三合，三合会等合局关系，最后加入喜用神逻辑，得出最终数值。
+          </div>
+          <div style="margin-top: 10px"><b>设置总分为：</b>800分</div>
+          <div class="wuxing-config-sub">
+            天干地支配比（总分：800分） <span id="ganZhiRateTips"><i class="layui-icon layui-icon-tips"></i></span>
+          </div>
+          <div class="sub-config">
+            <div class="layui-form-item">
+              <label class="layui-form-label">天干分数：</label>
+              <div class="layui-input-inline">
+                <input
+                  type="number"
+                  lay-verify="required|number"
+                  name="tianGanScore"
+                  placeholder="请输入天干分数"
+                  oninput="onWuxingScoreInput('gan')"
+                  maxlength="4"
+                  class="layui-input"
+                />
+                <input type="text" name="tianGanRate" style="display: none" />
+              </div>
+              <div class="input-endfix tian-gan-rate">20.000%</div>
+            </div>
+            <div class="layui-form-item">
+              <label class="layui-form-label">地支分数：</label>
+              <div class="layui-input-inline">
+                <input
+                  type="number"
+                  lay-verify="required|number"
+                  name="diZhiScore"
+                  placeholder="请输入地支分数"
+                  oninput="onWuxingScoreInput('zhi')"
+                  maxlength="4"
+                  class="layui-input"
+                />
+                <input type="text" name="diZhiRate" style="display: none" />
+              </div>
+              <div class="input-endfix di-zhi-rate">80.000%</div>
+            </div>
+          </div>
+
+          <div class="wuxing-config-sub">
+            四柱配比 （总分：800分）<span id="siZhuRateTips"><i class="layui-icon layui-icon-tips"></i></span>
+          </div>
+
+          <div class="sub-config si-zhu-config">
+            <div class="tian-gan-config">
+              <div class="gan-zhi-config-title">
+                天干（总分 <span class="tian-gan-score">160</span> 分:当前<span class="gan-total-rate"> 100 </span>%）
+              </div>
+              <div class="layui-form-item">
+                <label class="layui-form-label">年柱/流年天干分数：</label>
+                <div class="layui-input-inline">
+                  <input
+                    type="number"
+                    lay-verify="required|number"
+                    name="nianGanScore"
+                    placeholder="年柱"
+                    oninput="onWuxingScoreInput()"
+                    maxlength="4"
+                    class="layui-input"
+                  />
+                  <input type="text" name="nianGanRate" style="display: none" />
+                </div>
+                <div class="input-endfix nian-gan-rate">15.625%</div>
+              </div>
+              <div class="layui-form-item">
+                <label class="layui-form-label">月柱/流月天干分数：</label>
+                <div class="layui-input-inline">
+                  <input
+                    type="number"
+                    name="yueGanScore"
+                    lay-verify="required|number"
+                    placeholder="月柱/流月"
+                    oninput="onWuxingScoreInput()"
+                    maxlength="4"
+                    class="layui-input"
+                  />
+                  <input type="text" name="yueGanRate" style="display: none" />
+                </div>
+                <div class="input-endfix yue-gan-rate">46.875%</div>
+              </div>
+              <div class="layui-form-item">
+                <label class="layui-form-label">日柱/流日天干分数：</label>
+                <div class="layui-input-inline">
+                  <input
+                    type="number"
+                    name="riGanScore"
+                    lay-verify="required|number"
+                    placeholder="日柱/流日"
+                    oninput="onWuxingScoreInput()"
+                    maxlength="4"
+                    class="layui-input"
+                  />
+                  <input type="text" name="riGanRate" style="display: none" />
+                </div>
+                <div class="input-endfix ri-gan-rate">15.625%</div>
+              </div>
+              <div class="layui-form-item">
+                <label class="layui-form-label">时柱天干分数：</label>
+                <div class="layui-input-inline">
+                  <input
+                    type="number"
+                    name="shiGanScore"
+                    lay-verify="required|number"
+                    placeholder="时柱天干"
+                    oninput="onWuxingScoreInput()"
+                    maxlength="4"
+                    class="layui-input"
+                  />
+                  <input type="text" name="shiGanRate" style="display: none" />
+                </div>
+                <div class="input-endfix shi-gan-rate">21.875%</div>
+              </div>
+            </div>
+
+            <div class="di-zhi-config">
+              <div class="gan-zhi-config-title">
+                地支（总分 <span class="di-zhi-score">640</span> 分:当前 <span class="zhi-total-rate">100</span> %）
+              </div>
+              <div class="layui-form-item">
+                <label class="layui-form-label">年柱/流年地支分数：</label>
+                <div class="layui-input-inline">
+                  <input
+                    type="number"
+                    lay-verify="required|number"
+                    name="nianZhiScore"
+                    placeholder="请输入年柱分数"
+                    oninput="onWuxingScoreInput()"
+                    maxlength="4"
+                    class="layui-input"
+                  />
+                  <input type="text" name="nianZhiRate" style="display: none" />
+                </div>
+                <div class="input-endfix nian-zhi-rate">15.625%</div>
+              </div>
+              <div class="layui-form-item">
+                <label class="layui-form-label">月柱/流月地支分数：</label>
+                <div class="layui-input-inline">
+                  <input
+                    type="number"
+                    name="yueZhiScore"
+                    lay-verify="required|number"
+                    placeholder="请输入月柱分数"
+                    oninput="onWuxingScoreInput()"
+                    maxlength="4"
+                    class="layui-input"
+                  />
+                  <input type="text" name="yueZhiRate" style="display: none" />
+                </div>
+                <div class="input-endfix yue-zhi-rate">46.875%</div>
+              </div>
+              <div class="layui-form-item">
+                <label class="layui-form-label">日柱/流日地支分数：</label>
+                <div class="layui-input-inline">
+                  <input
+                    type="number"
+                    name="riZhiScore"
+                    lay-verify="required|number"
+                    placeholder="请输入日柱分数"
+                    oninput="onWuxingScoreInput()"
+                    maxlength="4"
+                    class="layui-input"
+                  />
+                  <input type="text" name="riZhiRate" style="display: none" />
+                </div>
+                <div class="input-endfix ri-zhi-rate">21.875%</div>
+              </div>
+              <div class="layui-form-item">
+                <label class="layui-form-label">时柱地支分数：</label>
+                <div class="layui-input-inline">
+                  <input
+                    type="number"
+                    name="shiZhiScore"
+                    lay-verify="required|number"
+                    placeholder="请输入时柱分数"
+                    oninput="onWuxingScoreInput()"
+                    maxlength="4"
+                    class="layui-input"
+                  />
+                  <input type="text" name="shiZhiRate" style="display: none" />
+                </div>
+                <div class="input-endfix shi-zhi-rate">15.625%</div>
+              </div>
+            </div>
+          </div>
+          <div class="wuxing-config-sub">
+            大运干支分数 <span id="dayunTips"><i class="layui-icon layui-icon-tips"></i></span>
+          </div>
+          <div class="sub-config si-zhu-config">
+            <div class="layui-form-item">
+              <label class="layui-form-label">大运天干分数：</label>
+              <div class="layui-input-inline">
+                <input
+                  type="number"
+                  name="daYunGanScore"
+                  lay-verify="required|number"
+                  placeholder="大运天干"
+                  oninput="onWuxingScoreInput()"
+                  maxlength="4"
+                  class="layui-input"
+                />
+                <input type="text" name="daYunGanRate" style="display: none" />
+              </div>
+              <div class="input-endfix da-yun-gan-rate">15.625%</div>
+            </div>
+            <div class="layui-form-item">
+              <label class="layui-form-label">大运地支分数：</label>
+              <div class="layui-input-inline">
+                <input
+                  type="number"
+                  name="daYunZhiScore"
+                  lay-verify="required|number"
+                  placeholder="请输入大运分数"
+                  oninput="onWuxingScoreInput()"
+                  maxlength="4"
+                  class="layui-input"
+                />
+                <input type="text" name="daYunZhiRate" style="display: none" />
+              </div>
+              <div class="input-endfix da-yun-zhi-rate">15.625%</div>
+            </div>
+          </div>
+          <div class="wuxing-config-sub">
+            地支藏干比例 <span id="qiRateTips"><i class="layui-icon layui-icon-tips"></i></span>
+          </div>
+          <div class="sub-config qi-config">
+            <div class="layui-form-item">
+              <label class="layui-form-label">主气：</label>
+              <div class="layui-input-inline">
+                <input
+                  type="number"
+                  lay-verify="required|number"
+                  name="zhuQiRate"
+                  placeholder="请输入主气比例（0-100%）"
+                  maxlength="4"
+                  class="layui-input"
+                />
+              </div>
+              <div class="input-endfix">%</div>
+            </div>
+            <div class="layui-form-item">
+              <label class="layui-form-label">余气：</label>
+              <div class="layui-input-inline">
+                <input
+                  type="number"
+                  lay-verify="required|number"
+                  name="yuQiRate"
+                  placeholder="请输入余气比例（0-100%）"
+                  class="layui-input"
+                />
+              </div>
+              <div class="input-endfix">%</div>
+            </div>
+            <div class="layui-form-item">
+              <label class="layui-form-label">中气：</label>
+              <div class="layui-input-inline">
+                <input
+                  type="number"
+                  lay-verify="required|number"
+                  name="zhongQiRate"
+                  placeholder="请输入中气比例（0-100%）"
+                  maxlength="4"
+                  class="layui-input"
+                />
+              </div>
+              <div class="input-endfix">%</div>
+            </div>
+          </div>
+          <div class="wuxing-config-sub">喜用神附加值</div>
+          <div class="sub-config xi-yong-shen-config">
+            <div class="layui-form-item">
+              <label class="layui-form-label">羊刃分数：</label>
+              <div class="layui-input-inline">
+                <input type="number" name="yangRenScore" lay-verify="required|number" placeholder="请输入羊刃分数" class="layui-input" />
+              </div>
+              <div class="input-endfix">
+                <label id="yangRenRateTips"><i class="layui-icon layui-icon-tips"></i></label>
+              </div>
+            </div>
+            <div class="layui-form-item">
+              <label class="layui-form-label">食神制杀分数：</label>
+              <div class="layui-input-inline">
+                <input type="number" name="shiShaScore" lay-verify="required|number" placeholder="请输入食神制杀分数" class="layui-input" />
+              </div>
+              <div class="input-endfix">
+                <label id="shiShaTips"><i class="layui-icon layui-icon-tips"></i></label>
+              </div>
+            </div>
+          </div>
+          <div class="wuxing-config-sub">
+            合局 <span id="heJuTips"><i class="layui-icon layui-icon-tips"></i></span>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">计算合局：</label>
+            <div class="layui-input-inline" style="width: 200px">
+              <input type="radio" name="addHe" value="1" title="计算" checked />
+              <input type="radio" name="addHe" value="0" title="不计算" />
+            </div>
+          </div>
+
+          <div class="layui-form-item">
+            <div class="layui-input-block" style="text-align: right">
+              <button class="layui-btn" lay-submit lay-filter="formWuxingConfig">保存配置</button>
+              <button onclick="resetFormWuxingConfig()" type="button" class="layui-btn layui-btn-primary">重置</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 排盘历史 -->
+    <div class="pan-his-table-box">
+      <h2>
+        排盘历史
+        <!-- <button type="reset" class="layui-btn layui-btn-xs layui-btn-primary" onclick="onClearAllHis()">清除排盘历史</button> -->
+      </h2>
+
+      <table id="panHis" lay-filter="panHis"></table>
+    </div>
+
+    <!-- 自动盘编辑 START -->
+    <div class="modal-info-edit auto" style="display: none">
+      <div class="modal-content">
+        <form class="layui-form" action="" lay-filter="form-info-auto">
+          <div class="layui-form-item">
+            <label class="layui-form-label">姓名：</label>
+            <div class="layui-input-block">
+              <input type="text" name="username" placeholder="请输入姓名" class="layui-input" />
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">性别：</label>
+            <div class="layui-input-block">
+              <input type="radio" name="sex" value="男" title="男" checked />
+              <input type="radio" name="sex" value="女" title="女" />
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">时区</label>
+            <div class="layui-input-block">
+              <select name="timeZoneIndex" lay-verify="required" lay-filter="timeZoneSelectAuto" class="timeZoneSelect"></select>
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">经度：</label>
+            <div class="layui-input-block">
+              <input type="number" name="lng" lay-verify="required" class="layui-input lng-input-auto" lay-filter="lngInput" />
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">纬度：</label>
+            <div class="layui-input-block">
+              <input type="number" name="lat" lay-verify="required" class="layui-input lat-input-auto" lay-filter="latInput" />
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <div class="layui-input-block">
+              <button class="layui-btn" lay-submit lay-filter="formInfoAuto">确认排盘</button>
+              <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 手动盘编辑 START  style="display: none"-->
+    <div class="modal-info-edit manual">
+      <div class="modal-content">
+        <form class="layui-form" action="" lay-filter="form-info-manual">
+          <div class="layui-form-item">
+            <label class="layui-form-label">姓名：</label>
+            <div class="layui-input-block">
+              <input type="text" name="username" placeholder="请输入姓名" class="layui-input" />
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">性别：</label>
+            <div class="layui-input-block">
+              <input type="radio" name="sex" value="男" title="男" checked />
+              <input type="radio" name="sex" value="女" title="女" />
+            </div>
+          </div>
+          <!-- <div class="layui-form-item">
+            <label class="layui-form-label">时间：</label>
+            <div class="layui-input-block">
+              <input type="text" name="birthTimeStr" lay-verify="required" class="layui-input" id="birthTimeStr" />
+            </div>
+          </div> -->
+          <div class="layui-form-item">
+            <label class="layui-form-label">时间：</label>
+            <div class="layui-input-block">
+              <input
+                type="text"
+                name="birthTimeStr2"
+                lay-verify="birthdayDate"
+                class="layui-input"
+                oninput="onDateTimeStrInput()"
+                placeholder="输入日期"
+                id="birthTimeStr2"
+              />
+              <div class="birthday-tips">输入提示：如19890123040500，代表1989年01月23日04点05分00秒</div>
+            </div>
+          </div>
+
+          <!-- <div class="layui-form-item">
+            <label class="layui-form-label">时间：</label>
+            <div style="display: flex; align-items: center">
+              <div class="layui-input-inline" style="width: 55px">
+                <input
+                  type="text"
+                  name="yearBTime"
+                  lay-verify="required|number"
+                  maxlength="4"
+                  class="layui-input"
+                  oninput="onBTimeStrInput()"
+                />
+              </div>
+              <div style="margin-right: 10px">年</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input
+                  type="text"
+                  name="monthBTime"
+                  lay-verify="required|number"
+                  maxlength="2"
+                  class="layui-input"
+                  oninput="onBTimeStrInput()"
+                />
+              </div>
+              <div style="margin-right: 10px">月</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input
+                  type="text"
+                  name="dayBTime"
+                  lay-verify="required|number"
+                  maxlength="2"
+                  class="layui-input"
+                  oninput="onBTimeStrInput()"
+                />
+              </div>
+              <div style="margin-right: 10px">日</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input
+                  type="text"
+                  name="hourBTime"
+                  lay-verify="required|number"
+                  maxlength="2"
+                  class="layui-input"
+                  oninput="onBTimeStrInput()"
+                />
+              </div>
+              <div style="margin-right: 10px">时</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input
+                  type="text"
+                  name="minBTime"
+                  lay-verify="required|number"
+                  maxlength="2"
+                  class="layui-input"
+                  oninput="onBTimeStrInput()"
+                />
+              </div>
+              <div style="margin-right: 10px">分</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input
+                  type="text"
+                  name="secondBTime"
+                  lay-verify="required|number"
+                  maxlength="2"
+                  class="layui-input"
+                  oninput="onBTimeStrInput()"
+                />
+              </div>
+              <div>秒</div>
+            </div>
+          </div> -->
+
+          <!-- <div class="layui-form-item">
+            <label class="layui-form-label">流时间：</label>
+            <div style="display: flex; align-items: center">
+              <div style="margin-right: 10px">流年</div>
+              <div class="layui-input-inline" style="width: 55px">
+                <input type="text" name="yearLTime" lay-verify="required|number" maxlength="4" class="layui-input" />
+              </div>
+              <div style="margin-right: 10px">流月</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input type="text" name="monthLTime" lay-verify="required|number" maxlength="2" class="layui-input" />
+              </div>
+              <div style="margin-right: 10px">流日</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input type="text" name="dayLTime" lay-verify="required|number" maxlength="2" class="layui-input" />
+              </div>
+              <div style="margin-right: 10px">流时</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input type="text" name="hourLTime" lay-verify="required|number" maxlength="2" class="layui-input" />
+              </div>
+              <div style="margin-right: 10px">流分</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input type="text" name="minLTime" lay-verify="required|number" maxlength="2" class="layui-input" />
+              </div>
+              <div style="margin-right: 10px">流秒</div>
+              <div class="layui-input-inline" style="width: 40px">
+                <input type="text" name="secondLTime" lay-verify="required|number" maxlength="2" class="layui-input" />
+              </div>
+            </div>
+          </div> -->
+
+          <div class="layui-form-item">
+            <label class="layui-form-label">流时间：</label>
+            <div class="layui-input-block">
+              <input
+                type="text"
+                name="liuTimeStr"
+                lay-verify="birthdayDate"
+                class="layui-input"
+                oninput="onDateTimeStrInput('#liuTimeStr1')"
+                placeholder="流年月日时分秒日期"
+                id="liuTimeStr1"
+              />
+              <div class="birthday-tips">流年月日时日期（公历）。如19890123040500，代表流年1989流月01流日23流时04流分05流秒00</div>
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">时间类型：</label>
+            <div class="layui-input-block">
+              <input type="radio" name="timeComputeType" value="0" title="北京时间" checked lay-filter="timeComputeTypeSwitch" />
+              <input type="radio" name="timeComputeType" value="1" title="真太阳时" lay-filter="timeComputeTypeSwitch" />
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">农/公历：</label>
+            <div class="layui-input-block">
+              <input type="radio" name="isGong" value="1" title="公历" checked lay-filter="gongNongSwitch" />
+              <input type="radio" name="isGong" value="0" title="农历" lay-filter="gongNongSwitch" />
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">闰月：</label>
+            <div class="layui-input-block">
+              <input type="radio" name="isRunYue" value="0" title="农历平月" checked lay-filter="runYueSwitch" />
+              <input type="radio" name="isRunYue" value="1" title="农历闰月" lay-filter="runYueSwitch" />
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">时区：</label>
+            <div class="layui-input-block">
+              <select name="timeZoneIndex" lay-verify="required" class="timeZoneSelect" lay-search lay-filter="timeZoneSelect"></select>
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">经纬度：</label>
+            <div class="layui-input-block">
+              <input type="radio" name="latLngType" value="0" title="手动输入" checked lay-filter="latLngTypeSwitch" />
+              <input type="radio" name="latLngType" value="1" title="地图选点" lay-filter="latLngTypeSwitch" />
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">经度：</label>
+            <div class="layui-input-block">
+              <input type="number" name="lng" lay-verify="required" class="layui-input lng-input" step="0.000001" lay-filter="lngInput" />
+            </div>
+          </div>
+          <div class="layui-form-item">
+            <label class="layui-form-label">纬度：</label>
+            <div class="layui-input-block">
+              <input type="number" name="lat" lay-verify="required" class="layui-input lat-input" step="0.000001" lay-filter="latInput" />
+            </div>
+          </div>
+          <div class="google-map-wrap" style="width: 100%; height: 500px">
+            <input id="pac-input" type="text" placeholder="输入地址" />
+            <div id="googleMap2"></div>
+          </div>
+
+          <div class="layui-form-item">
+            <div class="layui-input-block">
+              <button class="layui-btn" lay-submit lay-filter="formInfoManual">提交排盘</button>
+              <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+              <button class="layui-btn layui-btn-primary" onclick="onInfoEditClose()">关闭排盘</button>
+            </div>
+          </div>
+        </form>
+        <div class="nong-gong-preview">
+          <div>公历日期：<span class="gong-preview"></span></div>
+          <div>农历日期：<span class="nong-preview"></span></div>
+          <div class="zhentaiyang-preview"></div>
+          <div>流日期：<span class="liu-preview"></span></div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

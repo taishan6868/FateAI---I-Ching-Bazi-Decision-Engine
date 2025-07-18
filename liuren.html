@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>无极天下 - 大六壬</title>
+    <script src="./js/jquery-3.5.1.min.js"></script>
+    <link rel="stylesheet" href="./layui/css/layui.css" />
+    <script src="./layui/layui.js"></script>
+    <script src="./js/lunar.js"></script>
+    <script src="./js/utils.js"></script>
+    <script src="./js/kinliuren.js"></script>
+    <script src="./js/lunar.js"></script>
+    <link rel="stylesheet" href="./css/liuren.css" />
+    <script>
+      let form,
+        laydate,
+        table,
+        layer = null
+
+      var trim = function (s) {
+        return s.replace(/(^\s*)|(\s*$)/g, '')
+      }
+
+      $(document).ready(function () {
+        // 获取用户名
+        $('.loginname').html(window.localStorage.getItem('username'))
+        init()
+        checkIsVip()
+      })
+
+      function init() {
+        layui.use(['laydate', 'form', 'layer', 'table'], function () {
+          laydate = layui.laydate
+          form = layui.form
+          layer = layui.layer
+          table = layui.table
+
+          form.verify({
+            birthdayDate: [/^\s*\d{4}\s*\d{2}\s*\d{2}\s*\d{2}\s*\d{2}?$/, '日期格式不正确，请检查']
+          })
+
+          form.on('submit(formPaiPan)', function (data) {
+            console.log('data.filed', data.field)
+            let fields = data.field
+
+            try {
+              sendRequest({
+                url: `api/user/getUserInfo`,
+                type: `get`
+              }).then(userInfoResp => {
+                let isVip = userInfoResp && userInfoResp.data && userInfoResp.data.isMember
+                if (!isVip) {
+                  onOpenVipTips()
+                  return false
+                } else {
+                  let startDateObj = getDateByStr(fields.startTime)
+                  let lunar
+
+                  try {
+                    if (fields.isGong == '1') {
+                      lunar = Solar.fromDate(
+                        new Date(
+                          `${startDateObj.year}/${startDateObj.month}/${startDateObj.day} ${startDateObj.hour}:${startDateObj.minute}:00`
+                        )
+                      ).getLunar()
+                    } else {
+                      lunar = Lunar.fromYmdHms(
+                        startDateObj.year,
+                        fields.isRunYue == '1' ? -startDateObj.month : startDateObj.month,
+                        startDateObj.day,
+                        startDateObj.hour,
+                        startDateObj.minute,
+                        00
+                      )
+                    }
+                  } catch (e) {
+                    console.log(e)
+                    if (fields.isGong == '1') {
+                      layer.msg('日期格式输入错误，请检查')
+                    } else {
+                      layer.msg('日期格式输入错误或者该月份不是闰月，请检查')
+                    }
+                    return false
+                  }
+
+                  console.log(lunar)
+
+                  console.log(lunar.getPrevJieQi().getName())
+
+                  console.log(lunar.getDayInGanZhi())
+
+                  console.log(lunar.getTimeInGanZhi())
+
+                  let monthInChinese = lunar.getMonthInChinese()
+                  if (monthInChinese == '冬') {
+                    monthInChinese = '十一'
+                  }
+                  if (monthInChinese == '腊') {
+                    monthInChinese = '十二'
+                  }
+                  console.log(monthInChinese)
+                  let result = new Liuren(
+                    lunar.getPrevJieQi().getName(),
+                    monthInChinese,
+                    lunar.getDayInGanZhi(),
+                    lunar.getTimeInGanZhi()
+                  ).result(0)
+                  console.log(result)
+
+                  renderPan(result, lunar)
+                }
+              })
+            } catch (e) {
+              console.log(e)
+            }
+
+            return false
+          })
+        })
+      }
+
+      function renderPan(result, lunar) {
+        if (!result) return
+
+        // if (result['天地盘']) {
+        //   if (result['天地盘']['地盘']) {
+        //     result['天地盘']['地盘'].map((item, index) => {
+        //       $(`.gong${index + 1} .di`).html(item)
+        //     })
+        //   }
+        //   if (result['天地盘']['天将']) {
+        //     result['天地盘']['天将'].map((item, index) => {
+        //       $(`.gong${index + 1} .jiang`).html(item)
+        //     })
+        //   }
+        //   if (result['天地盘']['天盘']) {
+        //     result['天地盘']['天盘'].map((item, index) => {
+        //       $(`.gong${index + 1} .tian`).html(item)
+        //     })
+        //   }
+        // }
+        if (result['地转天将'] && result['地转天盘']) {
+          '巳午未申'.split('').map((item, idx) => {
+            $(`.gong${idx + 1} .jiang`).html(result['地转天将'][item])
+            $(`.gong${idx + 1} .tian`).html(result['地转天盘'][item])
+            $(`.gong${idx + 1} .di`).html(item)
+          })
+          '亥子丑寅'.split('').map((item, idx) => {
+            $(`.gong${idx + 7} .jiang`).html(result['地转天将'][item])
+            $(`.gong${idx + 7} .tian`).html(result['地转天盘'][item])
+            $(`.gong${idx + 7} .di`).html(item)
+          })
+        }
+        $(`.gong5 .jiang`).html(result['地转天将']['酉'])
+        $(`.gong5 .tian`).html(result['地转天盘']['酉'])
+        $(`.gong5 .di`).html('酉')
+        $(`.gong6 .jiang`).html(result['地转天将']['戌'])
+        $(`.gong6 .tian`).html(result['地转天盘']['戌'])
+        $(`.gong6 .di`).html('戌')
+
+        $(`.gong11 .jiang`).html(result['地转天将']['卯'])
+        $(`.gong11 .tian`).html(result['地转天盘']['卯'])
+        $(`.gong11 .di`).html('卯')
+        $(`.gong12 .jiang`).html(result['地转天将']['辰'])
+        $(`.gong12 .tian`).html(result['地转天盘']['辰'])
+        $(`.gong12 .di`).html('辰')
+
+        if (result['三传']['初传'] && result['三传']['初传'].length >= 4) {
+          $('.chuan-l2').html(
+            `<div>${result['三传']['初传'][1]}</div><div>${result['三传']['初传'][3]}</div><div>${result['三传']['初传'][0]}</div><div>初传</div>`
+          )
+        }
+        if (result['三传']['中传'] && result['三传']['中传'].length >= 4) {
+          $('.chuan-l3').html(
+            `<div>${result['三传']['中传'][1]}</div><div>${result['三传']['中传'][3]}</div><div>${result['三传']['中传'][0]}</div><div>中传</div>`
+          )
+        }
+        if (result['三传']['末传'] && result['三传']['末传'].length >= 4) {
+          $('.chuan-l4').html(
+            `<div>${result['三传']['末传'][1]}</div><div>${result['三传']['末传'][3]}</div><div>${result['三传']['末传'][0]}</div><div>末传</div>`
+          )
+        }
+
+        if (result['四课']) {
+          let line1Html = ''
+          let line2Html = ''
+          for (const key in result['四课']) {
+            if (Object.hasOwnProperty.call(result['四课'], key)) {
+              const element = result['四课'][key]
+              line1Html += `<div>${element[0][0]}</div>`
+              line2Html += `<div>${element[0][1]}</div>`
+            }
+          }
+          $('.ke-l1').html(line1Html)
+          $('.ke-l2').html(line2Html)
+        }
+
+        if (result['格局'] && result['格局'].length >= 1) {
+          $('.title-ke').html(result['格局'][0] + '课')
+        }
+        $('.title-xun-shou').html(lunar.getMonthInGanZhi() + '旬首')
+        // 干支
+        $('.ganzhi').html(
+          `${lunar.getYearInGanZhi()} ${lunar.getMonthInGanZhi()} <span style="color:red;margin-left:5px"> ${lunar.getDayGan()}</span>${lunar.getDayZhi()} ${lunar.getTimeInGanZhi()} 月将:${
+            result['天地盘']['天盘'][0]
+          }`
+        )
+
+        layer.open({
+          type: 1,
+          title: '排盘结果',
+          content: $('.content'),
+          cancel: function (index, layero) {
+            $('.content').css({ display: 'none' })
+          }
+        })
+        // layer.msg('排盘成功')
+      }
+
+      function onDateTimeStrInput(css_selector = '#startTime') {
+        let v = $(css_selector).val()
+        // console.log(css_selector)
+        if (!/^\s*\d{4}\s*\d{2}\s*\d{2}\s*\d{2}\s*\d{2}?$/.test(v)) {
+          $(css_selector).addClass('error-input')
+          return
+        }
+        $(css_selector).removeClass('error-input')
+        v = trim(v)
+        var year = parseInt(v.substr(0, 4))
+        v = v.substr(4)
+        var month = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var day = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var hour = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var minute = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var second = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var gender = '男'
+        if ('+' == v) {
+          gender = '男'
+        } else if ('-' == v) {
+          gender = '女'
+        }
+        if (month < 10) month = '0' + month
+        if (day < 10) day = '0' + day
+        if (hour < 10) hour = '0' + hour
+        if (minute < 10) minute = '0' + minute
+        if (second < 10) second = '0' + second
+      }
+
+      function getDateByStr(v) {
+        v = trim(v)
+        var year = parseInt(v.substr(0, 4))
+        v = v.substr(4)
+        var month = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var day = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var hour = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var minute = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var second = '00'
+        return {
+          year: year,
+          month: month,
+          day: day,
+          hour: hour,
+          minute: minute
+        }
+      }
+
+      async function checkIsVip() {
+        const userInfoResp = await sendRequest({
+          url: `api/user/getUserInfo`,
+          type: `get`
+        })
+        if (userInfoResp && userInfoResp.data && userInfoResp.data.isMember) {
+          $('.user-info-api-img').html('<img src="./images/vip.png" alt="" />')
+        }
+      }
+
+      function onOpenVipTips() {
+        layer.confirm(
+          '仅需1680元VIP即可开启刑冲，奇门遁甲，神煞，紫薇，六爻，大六壬等权限',
+          {
+            btn: ['立即开启', '取消']
+          },
+          async function (index, layero) {
+            //按钮【按钮一】的回调
+            const orderPayResp = await sendRequest({
+              url: `api/order/pay`,
+              type: `get`
+            })
+
+            if (orderPayResp) {
+              layer.confirm(
+                '是否完成支付？',
+                {
+                  btn: ['已经支付', '未完成']
+                },
+                async function (index, layero) {
+                  window.location.reload()
+                },
+                function (index) {
+                  layer.close(index)
+                }
+              )
+
+              let form = orderPayResp
+              const div = document.createElement('formdiv')
+              div.innerHTML = form
+              document.body.appendChild(div)
+              for (let index = 0; index < document.forms.length; index++) {
+                const element = document.forms[index]
+                if (element.name == 'punchout_form') {
+                  element.setAttribute('target', '_blank')
+                  element.submit()
+                  div.remove()
+                }
+              }
+            }
+          },
+          function (index) {
+            layer.close(index)
+          }
+        )
+      }
+
+      // 退出登录
+      function logout() {
+        layer.confirm('确定要退出登录吗?', function (index) {
+          sendRequest({
+            method: 'GET',
+            url: '/api/user/userLogout'
+          }).then(res => {
+            if (res.code == 200) {
+              window.localStorage.removeItem('token')
+              window.localStorage.removeItem('username')
+              window.location.href = 'login.html'
+            }
+            layer.close(index)
+          })
+        })
+      }
+    </script>
+  </head>
+  <body>
+    <div class="header" style="display: flex; justify-content: space-between">
+      <div>
+        <a href="./index.html" style="font-size: 18px; color: #009688">&lt; 返回八字排盘</a>
+      </div>
+      <div class="user-info">
+        <div>
+          欢迎，<span class="user-info-api-img"></span><span class="loginname">请登录...</span>
+          <a href="javascript:;" onclick="logout()">退出登录</a>
+        </div>
+      </div>
+    </div>
+    <h1 style="font-size: 40px; text-align: center; padding: 10px 0">大六壬</h1>
+
+    <div class="liuren-form">
+      <form class="layui-form" action="" lay-filter="form-paipan">
+        <div class="layui-form-item">
+          <label class="layui-form-label">起课时间：</label>
+          <div class="layui-input-block">
+            <input
+              type="text"
+              name="startTime"
+              value=""
+              class="layui-input"
+              lay-verify="birthdayDate"
+              oninput="onDateTimeStrInput()"
+              placeholder="输入起课时间"
+              id="startTime"
+            />
+            <div class="birthday-tips">输入提示：如202303051333，代表2023年03月05日13点33分</div>
+          </div>
+        </div>
+        <div class="layui-form-item">
+          <label class="layui-form-label">农/公历：</label>
+          <div class="layui-input-block">
+            <input type="radio" name="isGong" value="1" title="公历" checked lay-filter="gongNongSwitch" />
+            <input type="radio" name="isGong" value="0" title="农历" lay-filter="gongNongSwitch" />
+          </div>
+        </div>
+        <div class="layui-form-item">
+          <label class="layui-form-label">闰月：</label>
+          <div class="layui-input-block">
+            <input type="radio" name="isRunYue" value="0" title="农历平月" checked lay-filter="runYueSwitch" />
+            <input type="radio" name="isRunYue" value="1" title="农历闰月" lay-filter="runYueSwitch" />
+          </div>
+        </div>
+        <div class="layui-form-item">
+          <div class="layui-input-block">
+            <button class="layui-btn search" lay-submit lay-filter="formPaiPan">排盘</button>
+            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="content" style="display: none">
+      <div class="pan">
+        <div class="line line1">
+          <div class="gong gong1"><span class="tian"></span> <span class="di"></span> <span class="jiang"></span></div>
+          <div class="gong gong2"><span class="tian"></span> <span class="di"></span> <span class="jiang"></span></div>
+          <div class="gong gong3"><span class="tian"></span> <span class="di"></span> <span class="jiang"></span></div>
+          <div class="gong gong4"><span class="tian"></span> <span class="di"></span> <span class="jiang"></span></div>
+        </div>
+        <div class="line line2">
+          <div class="line line2-1">
+            <div class="gong gong12"><span class="tian"></span> <span class="di"></span> <span class="jiang"></span></div>
+            <div class="gong gong11"><span class="tian"></span> <span class="di"></span> <span class="jiang"></span></div>
+          </div>
+          <div class="line line2-2 ganzhi"></div>
+          <div class="line line2-3">
+            <div class="gong gong5"><span class="tian"></span> <span class="di"></span> <span class="jiang"></span></div>
+            <div class="gong gong6"><span class="tian"></span> <span class="di"></span> <span class="jiang"></span></div>
+          </div>
+        </div>
+        <div class="line line3">
+          <div class="gong gong10"><span class="tian"></span> <span class="di"></span> <span class="jiang"></span></div>
+          <div class="gong gong9"><span class="tian"></span> <span class="di"></span> <span class="jiang"></span></div>
+          <div class="gong gong8"><span class="tian"></span> <span class="di"></span> <span class="jiang"></span></div>
+          <div class="gong gong7"><span class="tian"></span> <span class="di"></span> <span class="jiang"></span></div>
+        </div>
+      </div>
+
+      <div class="ke">
+        <div class="ke-l ke-l1"></div>
+        <div class="ke-l ke-l2"></div>
+      </div>
+
+      <div class="chuan">
+        <div class="chuan-l chuan-l1">
+          <div>神将</div>
+          <div class="title-xun-shou">旬首</div>
+          <div class="title-ke">课</div>
+          <div>三传</div>
+        </div>
+        <div class="chuan-l chuan-l2">
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+        </div>
+        <div class="chuan-l chuan-l3">
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+        </div>
+        <div class="chuan-l chuan-l4">
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>无极天下 - 登录</title>
+    <script src="./js/jquery-3.5.1.min.js"></script>
+    <link rel="stylesheet" href="./layui/css/layui.css" />
+    <script src="./layui/layui.js"></script>
+    <script src="./js/areacode.js"></script>
+    <script>
+      // let urlHead = 'http://10.10.10.218:8080'
+      let urlHead = '/api'
+      let canSendCaptcha = true
+
+      $(document).ready(function () {
+        init()
+      })
+      let form,
+        layer = null
+      function init() {
+        layui.use(['laydate', 'form', 'layer', 'table'], function () {
+          form = layui.form
+          layer = layui.layer
+          form.on('submit(smsLogin)', function (data) {
+            fields = data.field
+            console.log(fields)
+            $('.login-btn').attr('disabled', true)
+            if (fields.captcha != '123456') {
+              layer.msg('验证码错误')
+              $('.login-btn').attr('disabled', false)
+              return false
+            }
+            layer.msg('登录成功', function () {
+              window.location.replace('/')
+            })
+            return false
+          })
+
+          form.on('submit(passLogin)', function (data) {
+            let fields = data.field
+            fields.account = fields.areacode.replace('+', '') + fields.account
+            console.log(fields)
+            $('.login-btn').attr('disabled', true)
+
+            $.ajax({
+              method: 'POST',
+              url: urlHead + '/user/userLogin',
+              contentType: 'application/json; charset=UTF-8',
+              data: JSON.stringify(fields),
+              success: res => {
+                console.log('res', res)
+                if (res.code != 200) {
+                  layer.msg(res.msg)
+                  $('.login-btn').attr('disabled', false)
+                } else {
+                  layer.msg(
+                    '登录成功',
+                    {
+                      time: 1000
+                    },
+                    function () {
+                      $('.login-btn').attr('disabled', false)
+                      window.localStorage.setItem('token', res.token)
+                      window.localStorage.setItem('username', '+' + fields.account)
+                      window.location.replace('/')
+                    }
+                  )
+                }
+              },
+              error: res => {
+                console.log('登录出错', res)
+                $('.login-btn').attr('disabled', false)
+              }
+            })
+
+            return false
+          })
+
+          form.verify({
+            password: function (value, item) {
+              console.log(item)
+              //value：表单的值、item：表单的DOM对象
+              if (!new RegExp('^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z\\W]{8,16}$').test(value)) {
+                return '密码格式错误，必须为8-16位字母和数字'
+              }
+            }
+          })
+
+          form.on('submit(findPass)', data => {
+            $('.find-pass-btn').attr('disabled', true)
+            console.log('注册', data)
+            let fields = data.field
+            let onlyMobile = data.field.account
+            fields.account = fields.areacode.replace('+', '') + fields.account
+            if (fields.password != fields.confirmPassword) {
+              layer.msg('两次输入密码不一致!')
+              return false
+            }
+            $.ajax({
+              method: 'POST',
+              url: urlHead + '/user/userResetPassword',
+              data: fields,
+              contentType: 'application/json; charset=UTF-8',
+              data: JSON.stringify(fields),
+              success: res => {
+                if (res.code == 200) {
+                  window.localStorage.removeItem('token')
+                  window.localStorage.removeItem('username')
+                  switchLogin(onlyMobile)
+                }
+                layer.msg(res.msg)
+                $('.find-pass-btn').attr('disabled', false)
+              },
+              error: res => {
+                console.log('找回密码出错', res)
+              }
+            })
+            return false
+          })
+
+          form.on('submit(regist)', data => {
+            $('.regist-btn').attr('disabled', true)
+            console.log('注册', data)
+            let fields = data.field
+            let onlyMobile = data.field.account
+
+            fields.account = fields.areacode.replace('+', '') + fields.account
+
+            if (fields.password != fields.confirmPassword) {
+              layer.msg('两次输入密码不一致!')
+              return false
+            }
+
+            $.ajax({
+              method: 'POST',
+              url: urlHead + '/user/userRegister',
+              data: fields,
+              contentType: 'application/json; charset=UTF-8',
+              data: JSON.stringify(fields),
+              success: res => {
+                if (res.code == 200) switchLogin(onlyMobile)
+                layer.msg(res.msg)
+                $('.regist-btn').attr('disabled', false)
+              },
+              error: res => {
+                console.log('注册出错', res)
+              }
+            })
+
+            return false
+          })
+
+          initAreasSelects()
+        })
+      }
+
+      function initAreasSelects() {
+        let areacodeHtml = ''
+        areas[0].map(item => {
+          areacodeHtml += `<option value="${item.code}">${item.code}（${item.cn}）</option>`
+        })
+        $('.areacode-select').html(areacodeHtml)
+
+        form.render('select')
+      }
+
+      function sendCaptcha(sendForm = 'regist-form') {
+        let registForm = form.val(sendForm)
+
+        console.log('registForm', registForm)
+        // if (!/^1[35789]\d{9}$/.test(registForm.account)) {
+        //   layer.msg('请输入正确的手机号！')
+        //   return
+        // }
+
+        if (!registForm.account || '' == registForm.account || !/^[0-9]*$/.test(registForm.account)) {
+          layer.msg('请输入正确的手机号！')
+          return
+        }
+
+        if (!canSendCaptcha) {
+          layer.msg('已经发送过验证码了！')
+          return
+        }
+        canSendCaptcha = false
+
+        registForm.account = registForm.areacode.replace('+', '') + registForm.account
+        $.ajax({
+          method: 'POST',
+          url: urlHead + '/sms/send',
+          contentType: 'application/json; charset=UTF-8',
+          data: JSON.stringify(registForm),
+          success: res => {
+            if (res.code == 200) {
+              $('.sent-btn').css('display', 'inline-block')
+              $('.send-btn').css('display', 'none')
+              let time = 60
+              $('.sent-btn').html(`已发送（${time}s）`)
+              let sendTimeInterval = setInterval(() => {
+                time -= 1
+                $('.sent-btn').html(`已发送（${time}s）`)
+                if (time <= 0) {
+                  clearInterval(sendTimeInterval)
+                  $('.send-btn').css('display', 'inline-block')
+                  $('.sent-btn').css('display', 'none')
+                  canSendCaptcha = true
+                }
+              }, 1000)
+            } else {
+              canSendCaptcha = true
+            }
+            layer.msg(res.msg)
+          },
+          error: res => {
+            console.log('验证码发送出错', res)
+            canSendCaptcha = true
+          }
+        })
+      }
+
+      function switchRegist() {
+        form.val('regist-form', {
+          account: '',
+          code: '',
+          password: '',
+          confirmPassword: '',
+          areacode: '+86'
+        })
+        $('.pass-login-form').css('display', 'none')
+        $('.regist-form').css('display', 'block')
+      }
+
+      function switchFindPass() {
+        form.val('find-pass-form', {
+          account: '',
+          code: '',
+          password: '',
+          confirmPassword: '',
+          areacode: '+86'
+        })
+        $('.pass-login-form').css('display', 'none')
+        $('.find-pass-form').css('display', 'block')
+      }
+
+      function switchLogin(account) {
+        form.val('login-form', {
+          account: account,
+          code: '',
+          password: '',
+          areacode: '+86'
+        })
+        $('.pass-login-form').css('display', 'block')
+        $('.regist-form').css('display', 'none')
+        $('.find-pass-form').css('display', 'none')
+      }
+
+      function toMailLogin() {
+        window.location.href = './mail-login.html'
+      }
+    </script>
+
+    <style>
+      .box {
+        background-color: rgb(43, 41, 44);
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      .login-box {
+        background-color: #fff;
+        border-radius: 5px;
+        max-width: 400px;
+        width: 100%;
+        padding: 50px 50px;
+      }
+      .title h2 {
+        font-weight: bold;
+        margin-bottom: 50px;
+        font-size: 30px;
+      }
+
+      .layui-form-item .layui-input-block {
+        margin-left: 0;
+      }
+
+      .layui-input {
+        height: 48px;
+        padding: 0 15px;
+        font-size: 16px;
+      }
+
+      .captcha-btns {
+        position: absolute;
+        right: 10px;
+        top: 15px;
+      }
+      .login-btns button,
+      .regist-btns button {
+        margin-top: 15px;
+        width: 100%;
+        height: 48px;
+        margin-left: 0 !important;
+      }
+
+      .regist-tips {
+        text-align: center;
+        /* color: #009688; */
+        margin-top: 15px;
+      }
+      .regist-tips a {
+        color: #009688;
+      }
+
+      .account .layui-input {
+        padding-left: 130px;
+      }
+      .areacode-selectbox {
+        position: absolute;
+        left: 0px;
+        top: 0px;
+      }
+      .areacode-selectbox .layui-input {
+        padding-left: 10px;
+        width: 120px;
+        font-size: 13px;
+      }
+
+      .areacode-selectbox .layui-anim {
+        text-align: left;
+      }
+
+      @media only screen and (max-width: 575px) {
+        .box {
+          background-color: #fff;
+        }
+        .login-box {
+          padding: 15px 15px;
+          max-width: 100%;
+          margin: 30px 15px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <div class="login-box">
+        <div class="title"><h2>无极天下</h2></div>
+        <form class="layui-form pass-login-form" action="" lay-filter="login-form">
+          <div class="layui-form-item account">
+            <div class="layui-input-block">
+              <div class="layui-input-block areacode-selectbox">
+                <select name="areacode" lay-search lay-verify="required" class="areacode-select"></select>
+              </div>
+              <input type="text" name="account" value="" lay-verify="required|number" placeholder="请输入手机号" class="layui-input" />
+            </div>
+          </div>
+
+          <div class="layui-form-item pass">
+            <div class="layui-input-block">
+              <input
+                type="password"
+                name="password"
+                required
+                lay-verify="required|password"
+                placeholder="请输入密码"
+                maxlength="30"
+                autocomplete="off"
+                class="layui-input"
+              />
+            </div>
+          </div>
+
+          <div class="login-btns">
+            <button class="layui-btn login-btn" lay-submit lay-filter="passLogin">立即登录</button>
+            <button class="layui-btn layui-btn-primary switch-login-btn" type="button" onclick="switchRegist()">注册手机账号</button>
+          </div>
+          <div class="regist-tips">
+            <a onclick="toMailLogin()" style="cursor: pointer; margin-right: 30px">邮箱登录</a>
+            <a onclick="switchFindPass()" style="cursor: pointer">忘记密码？</a>
+          </div>
+        </form>
+
+        <form class="layui-form regist-form" style="display: none" action="" lay-filter="regist-form">
+          <div class="layui-form-item account">
+            <div class="layui-input-block">
+              <div class="layui-input-block areacode-selectbox">
+                <select name="areacode" lay-search lay-verify="required" class="areacode-select"></select>
+              </div>
+              <input type="text" name="account" value="" lay-verify="required|number" placeholder="请输入手机号" class="layui-input" />
+            </div>
+          </div>
+          <div class="layui-form-item captcha">
+            <div class="layui-input-block">
+              <input
+                type="text"
+                name="code"
+                lay-verify="required|number"
+                maxlength="6"
+                placeholder="请输入短信验证码"
+                class="layui-input"
+              />
+              <div class="captcha-btns">
+                <div class="send-btn" onclick="sendCaptcha()" style="cursor: pointer">发送验证码</div>
+                <div class="sent-btn" style="display: none">已发送（60s）</div>
+              </div>
+            </div>
+          </div>
+          <div class="layui-form-item pass">
+            <div class="layui-input-block">
+              <input
+                type="password"
+                name="password"
+                required
+                lay-verify="required|password"
+                placeholder="请输入密码（8-16位字母和数字）"
+                maxlength="30"
+                autocomplete="off"
+                class="layui-input"
+              />
+            </div>
+          </div>
+          <div class="layui-form-item confirm-pass">
+            <div class="layui-input-block">
+              <input
+                type="password"
+                name="confirmPassword"
+                required
+                lay-verify="required"
+                placeholder="请确认密码"
+                maxlength="30"
+                autocomplete="off"
+                class="layui-input"
+              />
+            </div>
+          </div>
+          <div class="regist-btns">
+            <button class="layui-btn regist-btn" lay-submit lay-filter="regist">立即注册</button>
+            <button class="layui-btn layui-btn-primary switch-login-btn" type="button" onclick="switchLogin()">切换登录</button>
+          </div>
+          <!-- <div class="regist-tips"><a href="register.html">忘记密码？</a></div> -->
+        </form>
+
+        <form class="layui-form find-pass-form" style="display: none" action="" lay-filter="find-pass-form">
+          <div class="layui-form-item account">
+            <div class="layui-input-block">
+              <div class="layui-input-block areacode-selectbox">
+                <select name="areacode" lay-search lay-verify="required" class="areacode-select"></select>
+              </div>
+              <input
+                type="text"
+                name="account"
+                value=""
+                lay-verify="required|number"
+                placeholder="请输入注册填写的手机号"
+                class="layui-input"
+              />
+            </div>
+          </div>
+          <div class="layui-form-item captcha">
+            <div class="layui-input-block">
+              <input
+                type="text"
+                name="code"
+                lay-verify="required|number"
+                maxlength="6"
+                placeholder="请输入短信验证码"
+                class="layui-input"
+              />
+              <div class="captcha-btns">
+                <div class="send-btn" onclick="sendCaptcha('find-pass-form')" style="cursor: pointer">发送验证码</div>
+                <div class="sent-btn" style="display: none">已发送（60s）</div>
+              </div>
+            </div>
+          </div>
+          <div class="layui-form-item pass">
+            <div class="layui-input-block">
+              <input
+                type="password"
+                name="password"
+                required
+                lay-verify="required|password"
+                placeholder="请输入新密码（8-16位字母和数字）"
+                maxlength="30"
+                autocomplete="off"
+                class="layui-input"
+              />
+            </div>
+          </div>
+          <div class="layui-form-item confirm-pass">
+            <div class="layui-input-block">
+              <input
+                type="password"
+                name="confirmPassword"
+                required
+                lay-verify="required"
+                placeholder="请确认新密码"
+                maxlength="30"
+                autocomplete="off"
+                class="layui-input"
+              />
+            </div>
+          </div>
+          <div class="regist-btns">
+            <button class="layui-btn find-pass-btn" lay-submit lay-filter="findPass">重置密码</button>
+            <button class="layui-btn layui-btn-primary switch-login-btn" type="button" onclick="switchLogin()">切换登录</button>
+          </div>
+          <!-- <div class="regist-tips"><a href="register.html">忘记密码？</a></div> -->
+        </form>
+      </div>
+    </div>
+  </body>
+</html>

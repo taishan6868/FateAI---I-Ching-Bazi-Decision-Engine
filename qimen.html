@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>无极天下 - 奇门遁甲</title>
+    <script src="./js/utils.js"></script>
+    <script src="./js/timezone.js"></script>
+    <script src="./js/canvas2image.js"></script>
+    <script src="./js/html2canvas.min.js"></script>
+    <script src="./js/xlsx.full.min.js"></script>
+    <script src="./js/xlxs-style.js"></script>
+    <link rel="stylesheet" href="./libs/element-plus/2.3.9_dist_index.css" />
+    <script src="./libs/3.3.4_dist_vue.global.js"></script>
+    <script src="./libs/element-plus/2.3.9_dist_index.full.js"></script>
+    <script src="./libs/element-plus/2.3.9_dist_locale_zh-cn.js"></script>
+    <script src="./libs/element-plus/icons-vue@2.1.0/index.js"></script>
+    <link rel="stylesheet" href="./css/qimen.css" />
+    <style>
+      .luck-box {
+        text-align: center;
+      }
+      .luck-row {
+        display: flex;
+        height: 30px;
+        line-height: 30px;
+      }
+      .luck-row:first-child {
+        border-top: 1px solid #000;
+      }
+      .luck-col {
+        flex: 1;
+        border-right: 1px solid #000;
+        border-bottom: 1px solid #000;
+        overflow: hidden;
+      }
+      .luck-col:first-child {
+        flex: 3;
+        border-left: 1px solid #000;
+      }
+    </style>
+    <script>
+      const { createApp, ref, getCurrentInstance, reactive } = Vue
+      const { ElMessageBox, ElMessage, ElNotification } = ElementPlus
+
+      window.onload = function () {
+        const app = createApp({
+          setup() {
+            const { ArrowLeftBold, ArrowRightBold, VideoPlay, VideoPause } = ElementPlusIconsVue
+            const { proxy } = getCurrentInstance()
+            const user = ref({
+              account: '请登录...'
+            })
+
+            const DEFAULT_EXCEL_ALIGN_STYLE = { horizontal: 'center' }
+            const DEFAULT_EXCEL_BORDER_STYLE = {
+              right: { style: 'thin' },
+              left: { style: 'thin' },
+              top: { style: 'thin' },
+              bottom: { style: 'thin' }
+            }
+
+            function loadUserData() {
+              sendRequest({
+                url: `api/user/getUserInfo`
+              }).then(userInfoResp => {
+                user.value.account = '+' + userInfoResp.data.account
+              })
+            }
+            function onClickLogout() {
+              ElMessageBox.confirm('确认要退出登录吗？').then(() => {
+                sendRequest({
+                  method: 'GET',
+                  url: '/api/user/userLogout'
+                })
+                  .then(res => {
+                    if (res.code == 200) {
+                      window.localStorage.removeItem('token')
+                      window.localStorage.removeItem('username')
+                      window.location.href = 'login.html'
+                    }
+                  })
+                  .catch(() => {
+                    // catch error
+                  })
+              })
+            }
+
+            const form = ref({
+              username: '',
+              sex: '男',
+              birth: '',
+              days: 7
+            })
+
+            const daysLuckBtnLoading = ref(false)
+            const dialogDaysLuckVisible = ref(false)
+            const dayLuckRows = ref([])
+
+            const checkTime = (rule, value, callback) => {
+              if (value === '') {
+                callback(new Error('请输入时间'))
+              } else {
+                if (!/^\s*\d{4}\s*\d{2}\s*\d{2}\s*\d{2}\s*\d{2}\s*\d{2}?$/.test(value)) {
+                  callback(new Error('时间格式不正确'))
+                }
+                callback()
+              }
+            }
+            const formRules = ref({
+              birth: [
+                { required: true, message: '请输入时间', trigger: 'blur' },
+                { validator: checkTime, message: '时间格式不正确', trigger: 'change' },
+                { validator: checkTime, message: '时间格式不正确', trigger: 'blur' }
+              ]
+            })
+
+            function onClickDaysLuck() {
+              proxy.$refs['formRef'].validate(async valid => {
+                if (!valid) {
+                  return
+                }
+                daysLuckBtnLoading.value = true
+
+                let days = form.value.days
+                let birthdate = getDateByStr(form.value.birth)
+                console.log('birthdate', birthdate)
+                let tempDate = new Date('2000-01-01 00:00:00')
+
+                tempDate.setFullYear(birthdate.year)
+                tempDate.setMonth(birthdate.month - 1)
+                tempDate.setDate(birthdate.day)
+                console.log('tempDate', tempDate)
+
+                let luckList = []
+
+                for (let i = 0; i < days; i++) {
+                  let luck = []
+                  let tDate = new Date(tempDate.getTime())
+                  tDate.setDate(tDate.getDate() + i)
+                  for (let j = 0; j < 24; j++) {
+                    tDate.setHours(j)
+                    let resp = await sendRequest({
+                      url: '/qm/door',
+                      method: 'POST',
+                      data: {
+                        birthday: `${tDate.getFullYear()}/${tDate.getMonth() + 1}/${tDate.getDate()} ${tDate.getHours()}:0:0`
+                      }
+                    })
+
+                    let mark = '0'
+                    if (resp && resp.door) {
+                      let index = resp.door.door.findIndex(res => {
+                        return res == '生'
+                      })
+                      if (index != -1) {
+                        mark = resp.door.marks[index]
+                      }
+                    }
+
+                    luck.push({ mark: mark, date: tDate })
+                  }
+                  luckList.push(luck)
+                }
+
+                let rows = []
+                let row = ['']
+                for (let j = 0; j < 24; j++) {
+                  row.push({
+                    v: j + '时',
+                    s: {
+                      font: {
+                        bold: true
+                      }
+                    },
+                    style: 'font-weight:bold;color:#000000'
+                  })
+                }
+                rows.push(row)
+
+                luckList.map(luck => {
+                  let row = [{ v: parseTime(luck[0].date, '{y}-{m}-{d}') }]
+                  let temp = luck[0].mark
+
+                  luck.map(l => {
+                    let s = {
+                      fill: { fgColor: { rgb: 'ffffff' } },
+                      font: {
+                        bold: false,
+                        color: { rgb: '000000' }
+                      },
+                      alignment: DEFAULT_EXCEL_ALIGN_STYLE,
+                      border: DEFAULT_EXCEL_BORDER_STYLE
+                    }
+                    let style = 'color:#000000'
+                    if (parseInt(temp) < parseInt(l.mark)) {
+                      style = 'color:#fff;background-color:#fd0404'
+                      s.fill.fgColor.rgb = 'fd0404'
+                      s.font.color.rgb = 'ffffff'
+                    }
+
+                    if (parseInt(temp) > parseInt(l.mark)) {
+                      style = 'color:#fff;background-color:#4e9131'
+                      s.fill.fgColor.rgb = '4e9131'
+                      s.font.color.rgb = 'ffffff'
+                    }
+
+                    temp = l.mark
+                    row.push({ v: l.mark, s: s, style: style })
+                  })
+                  rows.push(row)
+                })
+                console.log(rows)
+                dayLuckRows.value = rows
+                dialogDaysLuckVisible.value = true
+                daysLuckBtnLoading.value = false
+              })
+            }
+
+            function onClickLuck2Excel() {
+              const wb = XLSX.utils.book_new()
+              const ws = XLSX.utils.aoa_to_sheet(dayLuckRows.value)
+              XLSX.utils.book_append_sheet(wb, ws, form.value.days + '日财运')
+              let colsWidths = []
+              colsWidths.push({ wch: 4 })
+              dayLuckRows.value[0].map(data => {
+                colsWidths.push({ wch: 4 })
+              })
+              ws['!cols'] = colsWidths
+              XLSX.writeFile(wb, form.value.days + '日财运' + parseInt(new Date().getTime() / 1000) + '.xlsx')
+            }
+
+            async function onOpenSouPan() {
+              const userInfoResp = await sendRequest({
+                url: `api/user/getUserInfo`,
+                type: `get`
+              })
+              let isVip = userInfoResp && userInfoResp.data && userInfoResp.data.isMember
+              if (!isVip) {
+                onOpenVipTips()
+                return
+              }
+              window.location.href = './qimen-sou.html'
+            }
+
+            async function onOpenPaiPan() {
+              const userInfoResp = await sendRequest({
+                url: `api/user/getUserInfo`,
+                type: `get`
+              })
+              let isVip = userInfoResp && userInfoResp.data && userInfoResp.data.isMember
+              if (!isVip) {
+                onOpenVipTips()
+                return
+              }
+              window.location.href = 'qimen/index.html'
+            }
+
+            loadUserData()
+
+            return {
+              user,
+              form,
+              daysLuckBtnLoading,
+              formRules,
+
+              dialogDaysLuckVisible,
+              dayLuckRows,
+
+              onClickLogout,
+              onClickDaysLuck,
+              onOpenSouPan,
+              onOpenPaiPan,
+              onClickLuck2Excel
+            }
+          }
+        })
+        app.use(ElementPlus, {
+          locale: ElementPlusLocaleZhCn
+        })
+        app.mount('#app')
+        document.getElementById('app').style.display = 'block'
+      }
+    </script>
+
+    <script>
+      function getDateByStr(v) {
+        v = v.trim()
+        var year = parseInt(v.substr(0, 4))
+        v = v.substr(4)
+        var month = parseInt(v.substr(0, 2), 10)
+        v = v.substr(2).trim()
+        var day = parseInt(v.substr(0, 2), 10)
+        v = v.substr(2).trim()
+        var hour = parseInt(v.substr(0, 2), 10)
+        v = v.substr(2).trim()
+        var minute = parseInt(v.substr(0, 2), 10)
+        v = v.substr(2).trim()
+        var second = parseInt(v.substr(0, 2), 10)
+        return {
+          year: year,
+          month: month,
+          day: day,
+          hour: hour,
+          minute: minute,
+          second: second
+        }
+      }
+      function objToDateStr(obj) {
+        let date = new Date(`${obj.year}-${obj.month}-${obj.day} ${obj.hour}:${obj.minute}:${obj.second}`)
+        return `${date.getFullYear()}年${
+          date.getMonth() + 1
+        }月${date.getDate()}日${date.getHours()}时${date.getMinutes()}分${date.getSeconds()}秒`
+      }
+      function dateObjToStr(obj) {
+        let date = new Date('2000-01-01 00:00:00')
+        date.setFullYear(obj.year)
+        date.setMonth(obj.month - 1)
+        date.setDate(obj.day)
+        date.setHours(obj.hour)
+        date.setMinutes(obj.minute)
+        date.setSeconds(obj.second)
+        year = date.getFullYear()
+
+        month = date.getMonth() + 1
+        if (month < 10) month = '0' + month
+
+        day = date.getDate()
+        if (day < 10) day = '0' + day
+
+        hour = date.getHours()
+        if (hour < 10) hour = '0' + hour
+
+        minute = date.getMinutes()
+        if (minute < 10) minute = '0' + minute
+
+        second = date.getSeconds()
+        if (second < 10) second = '0' + second
+
+        return year + '' + month + '' + day + '' + hour + '' + minute + '' + second
+      }
+      function ToDegrees(val) {
+        if (typeof val == 'undefined' || val == '') {
+          return ''
+        }
+        val = val + ''
+        var i = val.indexOf('.')
+        var strDu = i < 0 ? val : val.substring(0, i) //获取度
+        var strFen = 0
+        var strMiao = 0
+        if (i > 0) {
+          var strFen = '0' + val.substring(i)
+          strFen = strFen * 60 + ''
+          i = strFen.indexOf('.')
+          if (i > 0) {
+            strMiao = '0' + strFen.substring(i)
+            strFen = strFen.substring(0, i) //获取分
+            strMiao = strMiao * 60 + ''
+            i = strMiao.indexOf('.')
+            strMiao = strMiao.substring(0, i + 4) //取到小数点后面三位
+            strMiao = parseFloat(strMiao).toFixed(2) //精确小数点后面两位
+          }
+        }
+        return strDu + '°' + strFen + '′'
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app" style="display: none">
+      <div class="header" style="display: flex; justify-content: space-between">
+        <div>
+          <el-link type="primary" href="./index.html" style="font-size: 20px">&lt; 返回八字排盘</el-link>
+        </div>
+        <div class="user-info">
+          <div>
+            欢迎，<span class="user-info-api-img"><img src="./images/vip.png" alt="" /></span
+            ><span class="loginname">{{user.account}}</span>
+            <span @click="onClickLogout" style="margin-left: 10px; color: #409eff; cursor: pointer" v-if="user.account">退出登录</span>
+          </div>
+        </div>
+      </div>
+      <h1 style="font-size: 40px; text-align: center; padding: 10px 0">奇门遁甲</h1>
+
+      <div class="pai-pan-form">
+        <el-form :model="form" ref="formRef" label-width="120px" :rules="formRules">
+          <el-form-item label="姓名">
+            <el-input v-model="form.username" placeholder="请输入姓名" size="large" />
+          </el-form-item>
+          <el-form-item label="性别">
+            <el-radio-group v-model="form.sex">
+              <el-radio label="男" size="large">男</el-radio>
+              <el-radio label="女" size="large">女</el-radio>
+            </el-radio-group>
+          </el-form-item>
+
+          <el-form-item label="时间" prop="birth">
+            <el-input v-model="form.birth" placeholder="年月日时分秒日期" size="large" />
+          </el-form-item>
+
+          <p style="margin: 15px 0 10px 125px; color: #909399; font-size: 10px">
+            输入提示：如20020202020202，代表2002年02月02日02点02分02秒
+          </p>
+          <el-form-item label="天数" prop="days">
+            <el-select v-model="form.days" placeholder="Select">
+              <el-option label="1天" :value="1"></el-option>
+
+              <el-option label="7天" :value="7"></el-option>
+              <el-option label="15天" :value="15"></el-option>
+              <el-option label="30天" :value="30"></el-option>
+              <!-- <el-option label="60天" :value="60"></el-option> -->
+              <!-- <el-option label="180天" :value="90"></el-option> -->
+            </el-select>
+          </el-form-item>
+
+          <el-form-item>
+            <el-button type="success" @click="onClickDaysLuck(7)" :loading="daysLuckBtnLoading">搜财运</el-button>
+            <el-button type="primary" @click="onOpenSouPan">搜盘</el-button>
+            <el-button type="primary" @click="onOpenPaiPan">排盘</el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+
+      <el-dialog
+        v-model="dialogDaysLuckVisible"
+        :title="form.days+'日财运'"
+        width="90%"
+        :close-on-click-modal="false"
+        @close="dialogDaysLuckVisible =false"
+      >
+        <div class="luck-box">
+          <div class="luck-row" v-for="row in dayLuckRows">
+            <div class="luck-col" v-for="r in row" :style="r.style">{{r.v}}</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px">
+          <el-button type="success" @click="onClickLuck2Excel">导出Excel</el-button>
+        </div>
+      </el-dialog>
+    </div>
+  </body>
+</html>

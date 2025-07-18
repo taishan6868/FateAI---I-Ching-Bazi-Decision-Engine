@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>无极天下 - 奇门遁甲</title>
+    <script src="./js/jquery-3.5.1.min.js"></script>
+    <link rel="stylesheet" href="./layui/css/layui.css" />
+    <script src="./layui/layui.js"></script>
+    <script src="./js/lunar.js"></script>
+    <script src="./js/utils.js"></script>
+    <script type="module" src="./js/qimen/index.js"></script>
+    <script src="./js/qimen/eph.js"></script>
+    <script src="./js/qimen/eph0.js"></script>
+    <script src="./js/qimen/ephB.js"></script>
+    <script src="./js/qimen/tools.js"></script>
+    <script src="./js/qimen/lunar.js"></script>
+    <script src="./js/qimen/JW.js"></script>
+    <script src="./js/qimen/calendar.js"></script>
+    <script src="./js/canvas2image.js"></script>
+    <script src="./js/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="./css/qimen.css" />
+    <script>
+      let form,
+        laydate,
+        table,
+        layer = null
+      let WUXING = ['木', '火', '土', '金', '水']
+      let GAN = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']
+      let GAN_SELECT = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']
+      let GAN_WUXING_IDX = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4]
+      let WANG_SHUAI = ['胎', '养', '长生', '沐浴', '冠带', '临官', '帝旺', '衰', '病', '死', '墓', '绝']
+      let WANG_SHUAI_LABEL = ['B+10', 'A+15', 'S+30', 'BB+25', 'AA+30', 'SS+60', 'SSS+90', 'X-15', 'Y-30', 'XX-45', 'XY-60', 'XXX-80']
+      // let startTime, endTime
+
+      $(document).ready(function () {
+        // 获取用户名
+        $('.loginname').html(window.localStorage.getItem('username'))
+        init()
+        checkIsVip()
+      })
+      function init() {
+        layui.use(['laydate', 'form', 'layer', 'table'], function () {
+          laydate = layui.laydate
+          form = layui.form
+          layer = layui.layer
+          table = layui.table
+          form.verify({
+            birthdayDate: [/^\s*\d{4}\s*\d{2}\s*\d{2}\s*\d{2}\s*\d{2}\s*\d{2}\s*[+-]?$/, '日期格式不正确，请检查']
+          })
+
+          form.on('select(qiMenSelectChange)', function (data) {
+            console.log(data.value) //复选框value值，也可以通过data.elem.value得到
+            if (data.value == '时家') {
+              $('.ding-ju-select').html(`<option value="拆补">拆补</option>
+              <option value="置润1(大于9天)">置润1(大于9天)</option>
+              <option value="置润2(大于等于9天)">置润2(大于等于9天)</option>
+              <option value="茅道">茅道</option>
+              <option value="阴盘">阴盘</option>`)
+            } else {
+              $('.ding-ju-select').html(`<option value="默认">默认</option>`)
+            }
+            form.render('select')
+          })
+        })
+      }
+
+      function compare() {
+        return function (a, b) {
+          return a.timeBean.date.getTime() - b.timeBean.date.getTime()
+        }
+      }
+
+      var trim = function (s) {
+        return s.replace(/(^\s*)|(\s*$)/g, '')
+      }
+      function onDateTimeStrInput(css_selector = '#startTime') {
+        let v = $(css_selector).val()
+        // console.log(css_selector)
+        if (!/^\s*\d{4}\s*\d{2}\s*\d{2}\s*\d{2}\s*\d{2}\s*\d{2}\s*[+-]?$/.test(v)) {
+          $(css_selector).addClass('error-input')
+          return
+        }
+        $(css_selector).removeClass('error-input')
+        v = trim(v)
+        var year = parseInt(v.substr(0, 4))
+        v = v.substr(4)
+        var month = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var day = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var hour = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var minute = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var second = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var gender = '男'
+        if ('+' == v) {
+          gender = '男'
+        } else if ('-' == v) {
+          gender = '女'
+        }
+        if (month < 10) month = '0' + month
+        if (day < 10) day = '0' + day
+        if (hour < 10) hour = '0' + hour
+        if (minute < 10) minute = '0' + minute
+        if (second < 10) second = '0' + second
+        // console.log(year, month, day, hour, minute, second, gender)
+        // let cTimeData = {
+        //   year: year,
+        //   month: month,
+        //   date: day,
+        //   hours: hour,
+        //   minutes: minute,
+        //   seconds: second
+        // }
+        // let cTimeData = new Date(`${year}-${month}-${day} ${hour}:${minute}:${second}`)
+        // startTime = cTimeData
+        // if (css_selector.indexOf('endTime') != -1) {
+        //   endTime = cTimeData
+        // }
+      }
+
+      function getDateByStr(v) {
+        v = trim(v)
+        var year = parseInt(v.substr(0, 4))
+        v = v.substr(4)
+        var month = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var day = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var hour = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var minute = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        var second = parseInt(v.substr(0, 2), 10)
+        v = trim(v.substr(2))
+        return new Date(`${year}-${month}-${day} ${hour}:${minute}:${second}`)
+      }
+
+      function onSouPanClick() {
+        layer.open({
+          type: 1,
+          title: '搜盘',
+          content: $('.sou-pan-dialog'),
+          cancel: function (index, layero) {
+            $('.sou-pan-dialog').css({ display: 'none' })
+          }
+        })
+      }
+
+      async function onPaiPanClick() {
+        const userInfoResp = await sendRequest({
+          url: `api/user/getUserInfo`,
+          type: `get`
+        })
+        let isVip = userInfoResp && userInfoResp.data && userInfoResp.data.isMember
+        if (!isVip) {
+          onOpenVipTips()
+          return
+        }
+        window.location.href = 'qimen/index.html'
+      }
+      async function onSouPanSearch() {
+        const userInfoResp = await sendRequest({
+          url: `api/user/getUserInfo`,
+          type: `get`
+        })
+        let isVip = userInfoResp && userInfoResp.data && userInfoResp.data.isMember
+        if (!isVip) {
+          onOpenVipTips()
+          return
+        }
+
+        let fields = form.val('form-sou-pan')
+        var arr = new Array()
+        $("input:checkbox[name='geju']:checked").each(function (i) {
+          arr[i] = $(this).val()
+        })
+        fields.geJu = arr //将数组合并成字符串
+        console.log('submit(formSouPan)', fields)
+
+        if (!/^\s*\d{4}\s*\d{2}\s*\d{2}\s*\d{2}\s*\d{2}\s*\d{2}\s*[+-]?$/.test(fields.startTime)) {
+          layer.msg('请输入正确的开始时间')
+          return false
+        }
+
+        if (!/^\s*\d{4}\s*\d{2}\s*\d{2}\s*\d{2}\s*\d{2}\s*\d{2}\s*[+-]?$/.test(fields.endTime)) {
+          layer.msg('请输入正确的结束时间')
+          return false
+        }
+        //表单校验
+        if (parseInt(fields.startTime) > parseInt(fields.endTime)) {
+          layer.msg('开始时间不能大于结束时间！')
+          return false
+        }
+
+        let lineCount = 30
+        if (fields.lineCount) {
+          lineCount = parseInt(fields.lineCount)
+        }
+
+        let startTime = getDateByStr(fields.startTime)
+        let endTime = getDateByStr(fields.endTime)
+
+        try {
+          $('.search').css({ display: 'none' })
+          $('.search-loading').css({ display: 'inline-block' })
+
+          await new Promise(resolve => setTimeout(resolve))
+
+          let times = []
+          GAN.map(gan => {
+            WANG_SHUAI.map(ws => {
+              let time = window.souJu(
+                startTime,
+                endTime,
+                fields.qiMen,
+                fields.dingJu,
+                fields.tiaoJian,
+                fields.gongWei,
+                fields.shenPan,
+                fields.jiuXing,
+                fields.baMen,
+                gan,
+                ws,
+                fields.diPanGan,
+                fields.diPanGanWangShuai,
+                fields.geJu,
+                {
+                  longitude: 116.3979471,
+                  birthPlace: '未知',
+                  isMan: fields.sex == '男' ? true : false,
+                  isZTY: false,
+                  wenShi: ''
+                }
+              )
+              if (time) {
+                time.map(t => {
+                  t.ganIdx = GAN.findIndex(item => {
+                    return item === gan
+                  })
+                  t.wsIdx = WANG_SHUAI.findIndex(item => {
+                    return item === ws
+                  })
+                })
+                times = times.concat(time)
+              }
+            })
+          })
+          times.sort(compare())
+          console.log(times)
+          renderTimes(times, fields.showText == '0' ? false : true, lineCount)
+
+          $('.search').css({ display: 'inline-block' })
+          $('.search-loading').css({ display: 'none' })
+
+          layer.open({
+            type: 1,
+            title: '搜盘结果',
+            content: $('.sou-pan-result'),
+            cancel: function (index, layero) {
+              $('.sou-pan-result').css({ display: 'none' })
+            }
+          })
+        } catch (e) {
+          console.log(e)
+        }
+
+        // console.log(
+        //   'y',
+        //   window.souJu(
+        //     startTime,
+        //     endTime,
+        //     fields.qiMen,
+        //     fields.DingJu,
+        //     fields.tiaoJian,
+        //     fields.gongWei,
+        //     fields.shenPan,
+        //     fields.jiuXing,
+        //     fields.baMen,
+        //     '乙',
+        //     '临官',
+        //     fields.diPanGan,
+        //     fields.diPanGanWangShuai,
+        //     fields.geJu,
+        //     {
+        //       longitude: 116.3979471,
+        //       birthPlace: '未知',
+        //       isMan: fields.sex == '男' ? true : false,
+        //       isZTY: false,
+        //       wenShi: ''
+        //     }
+        //   )
+        // )
+
+        return false
+      }
+      function renderTimes(times, showText = 0, subLen = 30) {
+        let newTimes = getNewArray(times, subLen)
+        let htmls = []
+        newTimes.map(time => {
+          let souPanItemHtmls = []
+          time.map(t => {
+            if (showText) {
+              souPanItemHtmls.push(
+                `<div class="sou-pan-i w${GAN_WUXING_IDX[t.ganIdx]} s${t.wsIdx}">${t.title} ${GAN[t.ganIdx]} ${
+                  WANG_SHUAI_LABEL[t.wsIdx]
+                }</div>`
+              )
+            } else {
+              souPanItemHtmls.push(`<div class="sou-pan-i w${GAN_WUXING_IDX[t.ganIdx]} s${t.wsIdx}">${t.title}</div>`)
+            }
+          })
+          htmls.push(`<div class="sou-pan-items">${souPanItemHtmls.join('')}</div>`)
+        })
+        $('.sou-pans').html(htmls.join(''))
+        // let htmls = []
+        // times.map(t => {
+        //   if (showText) {
+        //     htmls.push(
+        //       `<div class="sou-pan-i w${GAN_WUXING_IDX[t.ganIdx]} s${t.wsIdx}">${t.title} ${GAN[t.ganIdx]} ${WANG_SHUAI[t.wsIdx]}</div>`
+        //     )
+        //   } else {
+        //     htmls.push(`<div class="sou-pan-i w${GAN_WUXING_IDX[t.ganIdx]} s${t.wsIdx}">${t.title}</div>`)
+        //   }
+        // })
+        // $('.sou-pans').html(htmls.join(''))
+      }
+      function getNewArray(array, subGroupLength) {
+        let index = 0
+        let newArray = []
+        while (index < array.length) {
+          newArray.push(array.slice(index, (index += subGroupLength)))
+        }
+        return newArray
+      }
+
+      function onSaveToImage() {
+        cut_pic('souPanResult')
+      }
+      //截图
+      function cut_pic(cid) {
+        const shareContent = document.getElementById(cid)
+        const width = shareContent.offsetWidth
+        const height = shareContent.offsetHeight
+        const canvas = document.createElement('canvas')
+        const scale = 1
+
+        canvas.width = width * scale
+        canvas.height = height * scale
+        canvas.getContext('2d').scale(scale, scale)
+
+        const opts = {
+          scale: scale,
+          canvas: canvas,
+          logging: true,
+          width: width,
+          height: height,
+          useCORS: true
+        }
+
+        html2canvas(shareContent, opts).then(function (canvas) {
+          const context = canvas.getContext('2d')
+
+          context.mozImageSmoothingEnabled = false
+          context.webkitImageSmoothingEnabled = false
+          context.msImageSmoothingEnabled = false
+          context.imageSmoothingEnabled = false
+          const img = Canvas2Image.saveAsImage(canvas, canvas.width, canvas.height, parseInt(new Date().getTime() / 1000) + '.jpg')
+
+          // const t = '#' + cid
+          // $(t).html(img)
+          // $(img).css({
+          //   width: canvas.width + 'px',
+          //   height: canvas.height + 'px'
+          // })
+        })
+      }
+
+      async function checkIsVip() {
+        const userInfoResp = await sendRequest({
+          url: `api/user/getUserInfo`,
+          type: `get`
+        })
+        if (userInfoResp && userInfoResp.data && userInfoResp.data.isMember) {
+          $('.user-info-api-img').html('<img src="./images/vip.png" alt="" />')
+        }
+      }
+      function onOpenVipTips() {
+        layer.confirm(
+          '仅需1680元VIP即可开启刑冲，奇门遁甲，神煞，紫薇，六爻，大六壬等权限',
+          {
+            btn: ['立即开启', '取消']
+          },
+          async function (index, layero) {
+            //按钮【按钮一】的回调
+            const orderPayResp = await sendRequest({
+              url: `api/order/pay`,
+              type: `get`
+            })
+
+            if (orderPayResp) {
+              layer.confirm(
+                '是否完成支付？',
+                {
+                  btn: ['已经支付', '未完成']
+                },
+                async function (index, layero) {
+                  window.location.reload()
+                },
+                function (index) {
+                  layer.close(index)
+                }
+              )
+
+              let form = orderPayResp
+              const div = document.createElement('formdiv')
+              div.innerHTML = form
+              document.body.appendChild(div)
+              for (let index = 0; index < document.forms.length; index++) {
+                const element = document.forms[index]
+                if (element.name == 'punchout_form') {
+                  element.setAttribute('target', '_blank')
+                  element.submit()
+                  div.remove()
+                }
+              }
+            }
+          },
+          function (index) {
+            layer.close(index)
+          }
+        )
+      }
+      // 退出登录
+      function logout() {
+        layer.confirm('确定要退出登录吗?', function (index) {
+          sendRequest({
+            method: 'GET',
+            url: '/api/user/userLogout'
+          }).then(res => {
+            if (res.code == 200) {
+              window.localStorage.removeItem('token')
+              window.localStorage.removeItem('username')
+              window.location.href = 'login.html'
+            }
+            layer.close(index)
+          })
+        })
+      }
+    </script>
+  </head>
+  <body>
+    <div class="header" style="display: flex; justify-content: space-between">
+      <div>
+        <a href="./index.html" style="font-size: 18px; color: #009688">&lt; 返回八字排盘</a>
+      </div>
+      <div class="user-info">
+        <div>
+          欢迎，<span class="user-info-api-img"></span><span class="loginname">请登录...</span>
+          <a href="javascript:;" onclick="logout()">退出登录</a>
+        </div>
+      </div>
+    </div>
+    <h1 style="font-size: 40px; text-align: center; padding: 10px 0">奇门遁甲</h1>
+    <div class="content">
+      <div class="applications">
+        <!-- <button type="button" class="layui-btn layui-btn-normal" onclick="onPaiPanClick()">排盘</button
+        > -->
+        <button type="button" class="layui-btn" onclick="onSouPanClick()">搜盘</button>
+      </div>
+    </div>
+  </body>
+  <div class="sou-pan-dialog" style="display: none; padding: 30px 0">
+    <div class="dialog-body">
+      <form class="layui-form" action="" lay-filter="form-sou-pan">
+        <div class="layui-form-item">
+          <label class="layui-form-label">标题：</label>
+          <div class="layui-input-block">
+            <input type="text" name="username" placeholder="请输入你所测何事" class="layui-input" />
+          </div>
+        </div>
+        <div class="layui-form-item">
+          <label class="layui-form-label">性别：</label>
+          <div class="layui-input-block">
+            <input type="radio" name="sex" value="男" title="男" checked />
+            <input type="radio" name="sex" value="女" title="女" />
+          </div>
+        </div>
+        <!-- <div class="layui-form-item">
+          <label class="layui-form-label">时间：</label>
+          <div class="layui-input-block">
+            <input type="text" name="birthTimeStr" lay-verify="required" class="layui-input" id="birthTimeStr" />
+          </div>
+        </div> -->
+        <div class="layui-form-item">
+          <label class="layui-form-label">起始：</label>
+          <div class="layui-input-block">
+            <input
+              type="text"
+              name="startTime"
+              value=""
+              lay-verify="birthdayDate"
+              class="layui-input"
+              oninput="onDateTimeStrInput('#startTime')"
+              placeholder="输入起始日期"
+              id="startTime"
+            />
+            <div class="birthday-tips">输入提示：如20010203040506，代表2001年02月03日04点05分06秒（公历）</div>
+          </div>
+        </div>
+
+        <div class="layui-form-item">
+          <label class="layui-form-label">结束：</label>
+          <div class="layui-input-block">
+            <input
+              type="text"
+              name="endTime"
+              value=""
+              lay-verify="birthdayDate"
+              class="layui-input"
+              oninput="onDateTimeStrInput('#endTime')"
+              placeholder="输入结束日期"
+              id="endTime"
+            />
+            <div class="birthday-tips">输入提示：如20010203040506，代表2001年02月03日04点05分06秒（公历）</div>
+            <div style="margin-top: 10px; color: red">TIPS:建议时间跨度不要超过1个月，否则搜索时间会过长</div>
+          </div>
+        </div>
+
+        <div class="layui-form-item select-item">
+          <label class="layui-form-label">奇门：</label>
+          <div class="layui-input-inline">
+            <select name="qiMen" lay-verify="required" value="时家" lay-search lay-filter="qiMenSelectChange">
+              <option value="年家">年家</option>
+              <option value="月家">月家</option>
+              <option value="日家">日家</option>
+              <option value="时家" selected>时家</option>
+              <option value="刻家">刻家</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="layui-form-item select-item">
+          <label class="layui-form-label">定局：</label>
+          <div class="layui-input-inline">
+            <select name="dingJu" lay-verify="required" lay-search class="ding-ju-select">
+              <option value="拆补">拆补</option>
+              <option value="置润1(大于9天)">置润1(大于9天)</option>
+              <option value="置润2(大于等于9天)">置润2(大于等于9天)</option>
+              <option value="茅道">茅道</option>
+              <option value="阴盘">阴盘</option>
+            </select>
+          </div>
+        </div>
+        <div class="layui-form-item select-item">
+          <label class="layui-form-label">条件：</label>
+          <div class="layui-input-inline">
+            <select name="tiaoJian" lay-verify="required" lay-search>
+              <option value="全部">全部</option>
+              <option value="任一">任一</option>
+            </select>
+          </div>
+        </div>
+        <div class="layui-form-item select-item">
+          <label class="layui-form-label">宫位：</label>
+          <div class="layui-input-inline">
+            <select name="gongWei" lay-verify="required" lay-search>
+              <option value="任意">任意</option>
+              <option value="坎">坎</option>
+              <option value="坤">坤</option>
+              <option value="震">震</option>
+              <option value="巽">巽</option>
+              <option value="乾">乾</option>
+              <option value="兑">兑</option>
+              <option value="艮">艮</option>
+              <option value="离">离</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="layui-form-item select-item">
+          <label class="layui-form-label">神盘：</label>
+          <div class="layui-input-inline">
+            <select name="shenPan" lay-verify="required" lay-search>
+              <option value="任意">任意</option>
+              <option value="值符">值符</option>
+              <option value="螣蛇">螣蛇</option>
+              <option value="太阴">太阴</option>
+              <option value="六合">六合</option>
+              <option value="白虎">白虎</option>
+              <option value="玄武">玄武</option>
+              <option value="九地">九地</option>
+              <option value="九天">九天</option>
+              <option value="朱雀">朱雀</option>
+              <option value="勾陈">勾陈</option>
+              <option value="太常">太常</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="layui-form-item select-item">
+          <label class="layui-form-label">九星：</label>
+          <div class="layui-input-inline">
+            <select name="jiuXing" lay-verify="required" lay-search>
+              <option value="任意">任意</option>
+              <option value="天蓬">天蓬</option>
+              <option value="天芮">天芮</option>
+              <option value="天冲">天冲</option>
+              <option value="天辅">天辅</option>
+              <option value="天禽">天禽</option>
+              <option value="天心">天心</option>
+              <option value="天柱">天柱</option>
+              <option value="天仁">天仁</option>
+              <option value="天英">天英</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="layui-form-item select-item">
+          <label class="layui-form-label">八门：</label>
+          <div class="layui-input-inline">
+            <select name="baMen" lay-verify="required" lay-search>
+              <option value="任意">任意</option>
+              <option value="休门">休门</option>
+              <option value="死门">死门</option>
+              <option value="伤门">伤门</option>
+              <option value="杜门">杜门</option>
+              <option value="开门">开门</option>
+              <option value="惊门">惊门</option>
+              <option value="生门">生门</option>
+              <option value="景门">景门</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- <div class="layui-form-item select-item">
+          <label class="layui-form-label">天盘干：</label>
+          <div class="layui-input-inline">
+            <select name="tianPanGan" lay-verify="required" lay-search>
+              <option value="任意">任意</option>
+              <option value="乙">乙</option>
+              <option value="丙">丙</option>
+              <option value="丁">丁</option>
+              <option value="戊">戊</option>
+              <option value="己">己</option>
+              <option value="庚">庚</option>
+              <option value="辛">辛</option>
+              <option value="壬">壬</option>
+              <option value="癸">癸</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="layui-form-item select-item">
+          <label class="layui-form-label">天盘干旺衰：</label>
+          <div class="layui-input-inline">
+            <select name="tianPanGanWangShuai" lay-verify="required" lay-search>
+              <option value="任意">任意</option>
+              <option value="胎">胎</option>
+              <option value="养">养</option>
+              <option value="长生">长生</option>
+              <option value="沐浴">沐浴</option>
+              <option value="冠带">冠带</option>
+              <option value="临官">临官</option>
+              <option value="帝旺">帝旺</option>
+              <option value="衰">衰</option>
+              <option value="病">病</option>
+              <option value="死">死</option>
+              <option value="墓">墓</option>
+              <option value="绝">绝</option>
+            </select>
+          </div>
+        </div> -->
+
+        <div class="layui-form-item select-item">
+          <label class="layui-form-label">地盘干：</label>
+          <div class="layui-input-inline">
+            <select name="diPanGan" lay-verify="required" lay-search>
+              <option value="任意">任意</option>
+              <option value="乙">乙</option>
+              <option value="丙">丙</option>
+              <option value="丁">丁</option>
+              <option value="戊">戊</option>
+              <option value="己">己</option>
+              <option value="庚">庚</option>
+              <option value="辛">辛</option>
+              <option value="壬">壬</option>
+              <option value="癸">癸</option>
+            </select>
+          </div>
+        </div>
+        <div class="layui-form-item select-item">
+          <label class="layui-form-label">地盘干旺衰：</label>
+          <div class="layui-input-inline">
+            <select name="diPanGanWangShuai" lay-verify="required" lay-search>
+              <option value="任意">任意</option>
+              <option value="胎">胎</option>
+              <option value="养">养</option>
+              <option value="长生">长生</option>
+              <option value="沐浴">沐浴</option>
+              <option value="冠带">冠带</option>
+              <option value="临官">临官</option>
+              <option value="帝旺">帝旺</option>
+              <option value="衰">衰</option>
+              <option value="病">病</option>
+              <option value="死">死</option>
+              <option value="墓">墓</option>
+              <option value="绝">绝</option>
+            </select>
+          </div>
+        </div>
+        <div class="layui-form-item">
+          <label class="layui-form-label">格局:</label>
+          <div class="layui-input-block">
+            <input type="checkbox" name="geJu" title="年干入墓" value="年干入墓" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="月干入墓" value="月干入墓" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="日干入墓" value="日干入墓" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="时干入墓" value="时干入墓" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="分干入墓" value="分干入墓" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="天显时格" value="天显时格" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="五不遇时" value="五不遇时" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="扶吟" value="扶吟" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="反吟" value="反吟" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="青龙返首" value="青龙返首" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="飞鸟跌穴" value="飞鸟跌穴" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="天遁" value="天遁" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="地遁" value="地遁" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="人遁" value="人遁" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="风遁" value="风遁" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="云遁" value="云遁" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="龙遁" value="龙遁" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="虎遁" value="虎遁" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="神遁" value="神遁" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="鬼遁" value="鬼遁" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="玉女守门" value="玉女守门" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="日出扶桑" value="日出扶桑" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="月照端门" value="月照端门" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="星见西方" value="星见西方" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="真诈" value="真诈" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="休诈" value="休诈" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="重诈" value="重诈" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="天假" value="天假" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="地假" value="地假" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="人假" value="人假" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="神假" value="神假" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="鬼假" value="鬼假" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="三奇之灵" value="三奇之灵" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="奇游禄位" value="奇游禄位" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="青龙逃走" value="青龙逃走" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="白虎猖狂" value="白虎猖狂" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="朱雀投江" value="朱雀投江" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="螣蛇天矫" value="螣蛇天矫" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="荧入太白" value="荧入太白" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="太白入荧" value="太白入荧" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="大格" value="大格" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="小格" value="小格" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="刑格" value="刑格" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="奇格" value="奇格" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="伏宫格" value="伏宫格" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="飞宫格" value="飞宫格" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="岁格" value="岁格" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="月格" value="月格" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="日格" value="日格" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="时格" value="时格" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="飞干格" value="飞干格" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="六仪击刑" value="六仪击刑" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="三奇入墓" value="三奇入墓" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="三奇受制" value="三奇受制" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="门迫" value="门迫" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="悖格" value="悖格" lay-skin="primary" />
+            <input type="checkbox" name="geJu" title="天网四张" value="天网四张" lay-skin="primary" />
+          </div>
+        </div>
+        <div class="layui-form-item">
+          <label class="layui-form-label">展示文字</label>
+          <div class="layui-input-block">
+            <input type="radio" name="showText" value="0" title="否" checked />
+            <input type="radio" name="showText" value="1" title="是" />
+          </div>
+        </div>
+        <div class="layui-form-item">
+          <label class="layui-form-label">行数量：</label>
+          <div class="layui-input-block">
+            <input type="number" name="lineCount" value="30" placeholder="请输入结果的展示行数量" class="layui-input" />
+          </div>
+        </div>
+        <div class="layui-form-item">
+          <div class="layui-input-block">
+            <button class="layui-btn search" type="button" onclick="onSouPanSearch()">搜索</button>
+            <button class="layui-btn search-loading" disabled>
+              搜索中<i class="layui-icon layui-icon-loading-1 layui-anim layui-anim-rotate layui-anim-loop"></i>
+            </button>
+            <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+            <button class="layui-btn layui-btn-primary" onclick="onSouPanClose()">关闭</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div class="sou-pan-result" style="display: none">
+    <div class="sou-pan-result-btns">
+      <button class="layui-btn search" type="button" onclick="onSaveToImage()">保存为截图</button>
+    </div>
+    <div class="sou-pans" id="souPanResult">
+      <div style="text-align: center">暂无结果，请调整搜索条件</div>
+    </div>
+  </div>
+</html>
