@@ -1,9 +1,26 @@
-# 🔮 Zhouyi Divination System | 周易算命系统 | 周易占卜系統
+⭐ AI-Powered Life Decision Platform | Not Fortune Telling — Decision Intelligence|Zhouyi Divination System | 周易算命系统 | 周易占卜系統
 
 🔥 Chinese Fortune Telling Platform | 命理系统 | 命理系統  
 👉 Bazi + Bagua + Five Elements | API Ready | SaaS Ready | Commercial Use  
 
+# FateAI - I Ching & Bazi Decision Engine
+
+# AI命理决策系统（易经 + 八字）
+
+# AI命理決策系統（易經 + 八字）
+
 ---
+
+## 🧠 What is FateAI? | 项目定位 | 專案定位
+
+FateAI is an AI-powered decision intelligence platform that combines I Ching (易经) and Bazi (八字) to help users make better life decisions.
+
+FateAI 不是传统算命工具，而是一个帮助用户做人生决策的智能系统。
+FateAI 不是傳統算命工具，而是一個幫助用戶做人生決策的智能系統。
+
+👉 Not fortune telling — Decision Intelligence
+👉 不算命 — 做决策
+👉 不算命 — 做決策
 
 ## 🧠 项目定位 / 專案定位 / Project Overview
 
@@ -44,38 +61,115 @@ Including core calculation modules:
 - 个人命运分析工具 / 個人命運分析工具 / Personal destiny tools  
 - SaaS平台 / SaaS平台 / SaaS platform  
 
+
+## 🎯 What Problems Does It Solve? | 解决什么问题 | 解決什麼問題
+
+Users don’t need predictions — they need clarity.
+
+用户不需要“预测未来”，而是需要“做决定的依据”。
+用戶不需要「預測未來」，而是需要「做決定的依據」。
+
+### Examples:
+
+* Should I change jobs?
+* Is this business worth starting?
+* Is this relationship sustainable?
+* When is the right timing for investment?
+
+👉 Career / Business / Relationship / Timing
+👉 职业 / 创业 / 感情 / 时机
+👉 職業 / 創業 / 感情 / 時機
+
 ---
 
-## 📊 示例输出 / 示例輸出 / Example Result
+## ⚙️ How It Works | 工作原理 | 運作方式
 
-输入 / 輸入 / Input:  
-1990-01-01 12:00  
+1. Input user data (birth date / question)
+   输入出生信息或问题
+   輸入出生資訊或問題
 
-输出 / 輸出 / Output:  
-- 八字排盘 / 八字排盤 / Bazi chart  
-- 五行分析 / 五行分析 / Five Elements analysis  
-- 命运解读 / 命運解讀 / Destiny interpretation  
+2. Generate Bazi structure (命盘)
+   生成八字结构
+   生成八字結構
+
+3. Apply I Ching logic (卦象推演)
+   结合易经推演
+   結合易經推演
+
+4. AI interpretation layer
+   AI生成可读分析
+   AI生成可讀分析
+
+👉 Structured logic + AI explanation
+👉 结构化逻辑 + AI解读
+👉 結構化邏輯 + AI解讀
 
 ---
 
-## 🔗 API示例 / API範例 / API Example
+## 🔍 Why It’s Different | 核心优势 | 核心優勢
+
+### ❌ Traditional Fortune Telling
+
+* Black box
+* Random interpretation
+* Hard to understand
+
+### ✅ FateAI
+
+* Deterministic logic (规则驱动)
+* Transparent reasoning (可解释)
+* Decision-oriented output (面向决策)
+
+👉 Not mystical — structured intelligence
+👉 非玄学黑箱 — 结构化推理
+👉 非玄學黑箱 — 結構化推理
 
 ---
-GET /api/calculate?birth=1990-01-01
-{
-  "bazi": "example",
-  "analysis": "your destiny analysis result"
-}
+
+## 🔐 Transparency & Trust | 可信性 | 可信性
+
+* No random output
+* Rule-based system
+* Reproducible results
+* Explainable reasoning
+
+无随机结果 / 规则驱动 / 可复现 / 可解释
+無隨機結果 / 規則驅動 / 可復現 / 可解釋
+
 ---
-## 🔗 快速运行 / 快速啟動 / Quick Start
-git clone https://github.com/your-repo/zhouyi  
-cd zhouyi  
 
-git clone xxx  
-npm install  
-npm run start  
+## 📊 Product Features | 产品功能 | 產品功能
 
-## 📊📊 项目截图 / 專案截圖 / Screenshots
+* Bazi chart generation
+  八字命盘生成
+  八字命盤生成
+
+* I Ching hexagram engine
+  易经起卦系统
+  易經起卦系統
+
+* AI interpretation engine
+  AI解读系统
+  AI解讀系統
+
+* Personalized insights
+  个性化分析
+  個性化分析
+
+* Multi-language support
+  多语言支持
+  多語言支援
+
+---
+
+## 📸 Product Preview | 产品展示 | 產品展示
+
+* Life chart visualization
+* Five elements balance
+* Decision report
+
+👉 Screenshots & demo available
+
 <img width="637" height="367" alt="屏幕截图 2024-10-29 112845" src="https://github.com/user-attachments/assets/fafd3b77-8e1d-4311-aea8-858f6dd2e68a" />
 <img width="2522" height="1364" alt="屏幕截图 2024-10-29 115350" src="https://github.com/user-attachments/assets/2c0d48bd-f55f-4b9c-b571-5cada3398395" />
 <img width="2446" height="1292" alt="屏幕截图 2024-10-29 115251" src="https://github.com/user-attachments/assets/75024a1c-1930-47e1-9b71-7ca43255c7a1" />
@@ -85,13 +179,52 @@ npm run start
 <img width="2471" height="1381" alt="屏幕截图 2024-10-29 114624" src="https://github.com/user-attachments/assets/60a272fa-09de-4210-b443-b9b93d301ea1" />
 <img width="2540" height="1381" alt="屏幕截图 2024-10-29 114423" src="https://github.com/user-attachments/assets/439295b5-4c17-4b63-8386-d4e93a9e3124" />
 
+---
 
-👉 Add real screenshots here (very important)
+## 💼 Business Model | 商业模式 | 商業模式
 
-## 🎥 演示视频 / 演示影片 / Demo
- 联系TG：@xuzongbin001
+FateAI can be used as:
 
-## 📩 联系方式 / 聯絡方式 / Contact
+* SaaS subscription platform
+* Personal AI advisor app
+* API for third-party integration
+* Content & consulting monetization
+
+👉 SaaS / App / API / Subscription
+👉 SaaS / 应用 / API / 订阅
+👉 SaaS / 應用 / API / 訂閱
+
+---
+
+## 🚀 Market Opportunity | 市场机会 | 市場機會
+
+* Rising demand for self-awareness tools
+* Growth of AI + spirituality market
+* Strong user retention potential
+
+👉 AI + 人生决策 = 长期高粘性产品
+👉 AI + 人生決策 = 長期高黏性產品
+
+---
+
+## 🧩 Use Cases | 使用场景 | 使用場景
+
+* Life decision support
+* Career planning
+* Relationship insights
+* Startup decision analysis
+
+---
+
+## 📦 Deployment | 部署 | 部署
+
+* Web / App deployment
+* API integration
+* Customization supported
+
+---
+
+## 📞 Contact | 联系方式 | 聯絡方式
 📱 Telegram：@xuzongbin001
 📧 Email：masterai918@gmail.com
 🔑 Keywords
